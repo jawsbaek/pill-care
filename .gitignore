@@ -1,0 +1,14 @@
+# Large data files (download/crawl to reproduce)
+data/drug_permit_detail.json
+data/한국의약품안전관리원_병용금기약물_20240625.csv
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Environment
+.env
+
+# OS
+.DS_Store
