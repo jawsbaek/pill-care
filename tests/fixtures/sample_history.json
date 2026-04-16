@@ -1,0 +1,21 @@
+[
+  {
+    "seq": 1, "drug_name": "알게텍정", "drug_class": "제산제",
+    "ingredient": "almagate", "drug_code": "057600010", "unit": "1정",
+    "dose_per_time": 1.0, "times_per_day": 3, "duration_days": 3,
+    "safety_letter": "N", "antithrombotic": "N", "department": "가정의학과"
+  },
+  {
+    "seq": 2, "drug_name": "펠루비정", "drug_class": "해열·진통·소염제",
+    "ingredient": "pelubiprofen", "drug_code": "671803380", "unit": "1정",
+    "dose_per_time": 1.0, "times_per_day": 3, "duration_days": 3,
+    "safety_letter": "N", "antithrombotic": "N", "department": "가정의학과"
+  },
+  {
+    "seq": 1, "drug_name": "록스펜정", "drug_class": "해열·진통·소염제",
+    "ingredient": "loxoprofen sodium hydrate (as loxoprofen sodium)",
+    "drug_code": "648500640", "unit": "1정",
+    "dose_per_time": 1.0, "times_per_day": 3, "duration_days": 3,
+    "safety_letter": "N", "antithrombotic": "N", "department": "안과"
+  }
+]
