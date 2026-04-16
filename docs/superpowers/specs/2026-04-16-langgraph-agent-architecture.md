@@ -64,34 +64,36 @@
 ## 2. GraphState 정의
 
 ```python
-from typing import Any, TypedDict
+import operator
+from typing import Annotated, TypedDict
 
-class GraphState(TypedDict, total=False):
-    # --- Input ---
+# Public State: graph.invoke()의 입출력에 노출
+class PublicState(TypedDict, total=False):
     profile_id: str               # 사용자 프로필 ID
     raw_records: list[dict]       # 파싱된 투약이력 레코드
-    db_path: str                  # SQLite DB 경로
-
-    # --- Phase 1 outputs ---
     matched_drugs: list[dict]     # MatchedDrug.model_dump() 리스트
     dur_alerts: list[dict]        # DurAlertModel.model_dump() 리스트
     drug_infos: list[dict]        # DrugInfo asdict() 리스트
-
-    # --- Phase 2 output ---
     guidance_result: dict | None  # GuidanceResult.model_dump()
+    errors: Annotated[list[str], operator.add]  # reducer: 자동 누적
 
-    # --- Phase 3 output ---
-    errors: list[str]             # 검증 에러 목록
-
-    # --- Internal (not serialized) ---
-    _llm: Any                     # ChatAnthropic instance
+# Internal State: _retry_count는 callers에게 비공개
+class GraphState(PublicState, total=False):
     _retry_count: int             # 재시도 횟수 (max 1)
+
+# 클로저로 주입 (State에 포함하지 않음):
+# - llm → _make_generate_node(llm) 
+# - db_path → make_match_node(db_path), make_dur_node(db_path), make_collect_node(db_path)
+#
+# builder = StateGraph(GraphState, input_schema=PublicState, output_schema=PublicState)
 ```
 
 ### 2-1. State 전파 규칙
 
 - LangGraph `StateGraph(TypedDict)`에서 각 노드는 **업데이트할 키만 반환**합니다.
 - 반환하지 않은 키는 이전 값이 유지됩니다.
+- `errors` 키는 `operator.add` reducer를 사용: 노드는 새 에러만 반환하면 자동 누적됩니다.
+- `llm`과 `db_path`는 **클로저로 주입** — State에 넣으면 checkpointer 직렬화가 깨짐.
 - `_llm`은 초기 state에서 설정되고, 어떤 노드도 반환하지 않으므로 전체 파이프라인에서 동일 인스턴스가 유지됩니다.
 - `_retry_count`는 `verify` 노드에서만 증가시킵니다.
 
