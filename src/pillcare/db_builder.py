@@ -190,3 +190,85 @@ def build_db(
     conn.commit()
     conn.close()
     return db_path
+
+
+def build_full_db(data_dir: Path, db_path: Path) -> Path:
+    """Build the complete DB from all crawled data files."""
+    import json
+    from pillcare.xml_parser import parse_nb_doc
+    from pillcare.dur_normalizer import normalize_dur
+
+    print("Loading drug_permit_detail.json...")
+    with open(data_dir / "drug_permit_detail.json", encoding="utf-8") as f:
+        permit_data = json.load(f)
+    print(f"  {len(permit_data)} items")
+
+    print("Loading easy_drug_info.json...")
+    with open(data_dir / "easy_drug_info.json", encoding="utf-8") as f:
+        easy_data = json.load(f)
+    print(f"  {len(easy_data)} items")
+
+    print("Building base tables and FTS5 index...")
+    build_db(db_path, permit_data=permit_data, easy_data=easy_data)
+
+    print("Parsing NB_DOC_DATA XML into sections...")
+    conn = sqlite3.connect(db_path)
+    conn.execute("DELETE FROM drug_sections")
+    count = 0
+    parse_errors = 0
+    for item in permit_data:
+        nb = item.get("NB_DOC_DATA", "")
+        if not nb:
+            continue
+        sections = parse_nb_doc(nb)
+        if not sections and nb.strip():
+            parse_errors += 1
+        for s in sections:
+            conn.execute(
+                "INSERT OR REPLACE INTO drug_sections VALUES (?,?,?,?,?)",
+                (item["ITEM_SEQ"], s.section_type, s.section_title,
+                 s.section_text, s.section_order),
+            )
+            count += 1
+    conn.commit()
+    print(f"  {count} sections inserted ({parse_errors} parse failures)")
+
+    dur_csv = data_dir / "한국의약품안전관리원_병용금기약물_20240625.csv"
+    if dur_csv.exists():
+        print("Normalizing DUR pairs...")
+        pairs = normalize_dur(dur_csv, encoding="cp949")
+        conn.execute("DELETE FROM dur_pairs")
+        for p in pairs:
+            conn.execute(
+                "INSERT OR REPLACE INTO dur_pairs VALUES (?,?,?,?,?,?)",
+                (p.ingr_code_1, p.ingr_name_1, p.ingr_code_2,
+                 p.ingr_name_2, p.reason, p.notice_date),
+            )
+        conn.commit()
+        print(f"  {len(pairs)} pairs inserted")
+
+    bundle_path = data_dir / "bundle_drug_info.json"
+    if bundle_path.exists():
+        print("Loading bundle ATC data...")
+        with open(bundle_path, encoding="utf-8") as f:
+            bundle_data = json.load(f)
+        conn.execute("DELETE FROM bundle_atc")
+        for item in bundle_data:
+            conn.execute(
+                "INSERT INTO bundle_atc VALUES (?,?,?,?,?)",
+                (item.get("trustItemName"), item.get("trustMainingr"),
+                 item.get("trustAtcCode"), item.get("trustHiraMainingrCode"),
+                 item.get("trustHiraPrductCode")),
+            )
+        conn.commit()
+        print(f"  {len(bundle_data)} bundle records inserted")
+
+    conn.close()
+    print(f"DB built: {db_path} ({db_path.stat().st_size / 1024 / 1024:.1f} MB)")
+    return db_path
+
+
+if __name__ == "__main__":
+    data_dir = Path(__file__).resolve().parent.parent.parent / "data"
+    db_path = data_dir / "pillcare.db"
+    build_full_db(data_dir, db_path)
