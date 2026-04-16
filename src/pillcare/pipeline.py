@@ -87,6 +87,8 @@ def _parse_drug_guidance(drug_name: str, response_text: str) -> DrugGuidance:
 def _make_generate_node(llm: Any):
     """Factory: creates generate node with LLM bound via closure."""
     def generate_node(state: dict) -> dict:
+        from pillcare.guardrails import filter_banned_words
+
         drug_infos = state.get("drug_infos", [])
         dur_alerts = state.get("dur_alerts", [])
 
@@ -165,11 +167,10 @@ def _make_generate_node(llm: Any):
                 generation_errors.append(f"[ERROR] LLM 호출 실패: {info.get('item_name', '')} — {e}")
 
             # Apply banned word filter to generated text
-            from pillcare.guardrails import filter_banned_words
             response_text = filter_banned_words(response_text)
 
             guidance = _parse_drug_guidance(info.get("item_name", ""), response_text)
-            drug_guidances.append(guidance.model_dump())
+            drug_guidances.append(guidance)
 
             for a in dur_alerts:
                 if a["drug_name_1"] == info.get("item_name") or a["drug_name_2"] == info.get("item_name"):
@@ -178,7 +179,7 @@ def _make_generate_node(llm: Any):
                     )
 
         result = GuidanceResult(
-            drug_guidances=[DrugGuidance(**g) for g in drug_guidances],
+            drug_guidances=drug_guidances,
             dur_warnings=dur_warnings,
             summary=list(set(summary_points)),
             warning_labels=warning_labels,

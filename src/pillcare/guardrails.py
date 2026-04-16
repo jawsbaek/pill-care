@@ -2,7 +2,7 @@
 
 import re
 from pillcare.prompts import BANNED_WORDS
-from pillcare.schemas import GuidanceResult, SourceTier
+from pillcare.schemas import GuidanceResult
 
 _WARNING_SECTIONS = {"주의사항", "상호작용", "투여종료후"}
 _CLOSING_PHRASE = "의사 또는 약사와 상담하십시오"

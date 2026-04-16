@@ -12,8 +12,11 @@ load_dotenv()
 from langchain_anthropic import ChatAnthropic
 
 from pillcare.history_parser import parse_history_xls
-from pillcare.pipeline import build_pipeline, run_pipeline
+from pillcare.pipeline import build_pipeline
 from pillcare.schemas import GuidanceResult
+
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+DB_PATH = _PROJECT_ROOT / "data" / "pillcare.db"
 
 
 @st.cache_resource
@@ -21,8 +24,6 @@ def _get_pipeline(db_path: str, api_key: str):
     """Cache compiled graph across Streamlit reruns."""
     llm = ChatAnthropic(model="claude-sonnet-4-6", api_key=api_key, max_tokens=4096)
     return build_pipeline(db_path=db_path, llm=llm)
-
-DB_PATH = Path("data/pillcare.db")
 
 
 def main():

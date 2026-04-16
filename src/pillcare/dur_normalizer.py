@@ -19,7 +19,7 @@ class DurPair:
 def _normalize_reason(reason: str) -> str:
     text = reason.strip()
     text = re.sub(
-        r"기능[적성]\s*신부전에\s*의한?\s*유산\s*산성증",
+        r"기능[적성]\s*신부전에\s*의(?:해|한)?\s*유산\s*산성증",
         "기능적 신부전에 의한 유산산성증",
         text,
     )
@@ -63,4 +63,9 @@ def normalize_dur(csv_path: Path, encoding: str = "cp949") -> list[DurPair]:
                         reason=reason,
                         notice_date=row.get("공고일자", "").strip(),
                     )
+            else:
+                # Preserve multiple distinct reasons per pair (spec §4-2)
+                existing = pair_map[key]
+                if reason and reason not in existing.reason:
+                    existing.reason = f"{existing.reason}; {reason}"
     return list(pair_map.values())
