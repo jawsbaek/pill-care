@@ -11,8 +11,15 @@ load_dotenv()
 from langchain_anthropic import ChatAnthropic
 
 from pillcare.history_parser import parse_history_xls
-from pillcare.pipeline import run_pipeline
+from pillcare.pipeline import build_pipeline, run_pipeline
 from pillcare.schemas import GuidanceResult
+
+
+@st.cache_resource
+def _get_pipeline(db_path: str, api_key: str):
+    """Cache compiled graph across Streamlit reruns."""
+    llm = ChatAnthropic(model="claude-sonnet-4-6", api_key=api_key, max_tokens=4096)
+    return build_pipeline(db_path=db_path, llm=llm)
 
 DB_PATH = Path("data/pillcare.db")
 
@@ -68,8 +75,17 @@ def main():
         st.success(f"{len(all_records)}개 약물 파싱 완료")
 
         with st.spinner("LangGraph 파이프라인 실행 중..."):
-            llm = ChatAnthropic(model="claude-sonnet-4-6", api_key=api_key, max_tokens=4096)
-            final_state = run_pipeline(db_path=str(DB_PATH), llm=llm, records=all_records)
+            graph = _get_pipeline(str(DB_PATH), api_key)
+            initial_state = {
+                "profile_id": "default",
+                "raw_records": all_records,
+                "matched_drugs": [],
+                "dur_alerts": [],
+                "drug_infos": [],
+                "guidance_result": None,
+                "errors": [],
+            }
+            final_state = graph.invoke(initial_state)
 
         result_data = final_state.get("guidance_result")
         if result_data:

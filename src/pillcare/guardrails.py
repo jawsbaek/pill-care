@@ -65,7 +65,7 @@ def post_verify(result: GuidanceResult, dur_alerts: list[dict]) -> list[str]:
     errors = []
     missing = verify_dur_coverage(result, dur_alerts)
     for m in missing:
-        errors.append(f"[CRITICAL] DUR 누락: {m['drug_name_1']} × {m['drug_name_2']}")
+        errors.append(f"[ERROR] DUR 누락: {m['drug_name_1']} × {m['drug_name_2']} (deterministic 구성 — 재시도 불가, 코드 버그 확인 필요)")
     errors.extend(verify_source_tags(result))
     errors.extend(verify_t4_ratio(result))
     errors.extend(verify_closing_phrase(result))

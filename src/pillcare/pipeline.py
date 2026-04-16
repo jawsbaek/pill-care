@@ -1,28 +1,34 @@
 """LangGraph StateGraph pipeline for medication guidance generation."""
 
+import operator
 import re
-from typing import Any, TypedDict
+from typing import Annotated, Any, TypedDict
 
 from langchain_core.messages import HumanMessage, SystemMessage
-from langgraph.graph import END, StateGraph
+from langgraph.graph import END, START, StateGraph
 
-from pillcare.prompts import BANNED_WORDS, DRUG_GUIDANCE_TEMPLATE, SYSTEM_PROMPT
+from pillcare.prompts import DRUG_GUIDANCE_TEMPLATE, SYSTEM_PROMPT
 from pillcare.schemas import (
     DrugGuidance, DurWarning, GuidanceResult, GuidanceSection, SourceTier,
 )
 from pillcare.tools import make_collect_node, make_dur_node, make_match_node
 
 
-class GraphState(TypedDict, total=False):
-    """Runtime state for LangGraph pipeline."""
+# --- State schemas ---
+# Public state: visible in graph input/output
+class PublicState(TypedDict, total=False):
     profile_id: str
     raw_records: list[dict]
     matched_drugs: list[dict]
     dur_alerts: list[dict]
     drug_infos: list[dict]
     guidance_result: dict | None
-    errors: list[str]
-    _retry_count: int
+    errors: Annotated[list[str], operator.add]  # reducer: auto-accumulate
+
+
+# Internal state: includes private keys not exposed in input/output
+class GraphState(PublicState, total=False):
+    _retry_count: int  # private — not in input/output schema
 
 
 # --- Section names for parsing ---
@@ -176,26 +182,20 @@ def _make_generate_node(llm: Any):
 
 
 def _verify_node(state: dict) -> dict:
-    """Post-verification node. Lazy-imports guardrails (Task 11)."""
-    try:
-        from pillcare.guardrails import post_verify
-    except ImportError:
-        # guardrails module not yet implemented (Task 11)
-        return {"_retry_count": state.get("_retry_count", 0) + 1}
+    """Post-verification node. Returns only NEW errors (reducer handles accumulation)."""
+    from pillcare.guardrails import post_verify
 
     result_data = state.get("guidance_result")
     retry_count = state.get("_retry_count", 0)
 
     if not result_data:
-        return {"errors": state.get("errors", []) + ["생성 결과 없음"], "_retry_count": retry_count + 1}
+        return {"errors": ["생성 결과 없음"], "_retry_count": retry_count + 1}
 
     result = GuidanceResult(**result_data) if isinstance(result_data, dict) else result_data
     dur_alerts = state.get("dur_alerts", [])
 
-    verification_errors = post_verify(result, dur_alerts)
-    errors = list(state.get("errors", []))
-    errors.extend(verification_errors)
-    return {"errors": errors, "_retry_count": retry_count + 1}
+    new_errors = post_verify(result, dur_alerts)
+    return {"errors": new_errors, "_retry_count": retry_count + 1}
 
 
 def _should_retry(state: dict) -> str:
@@ -210,10 +210,10 @@ def _should_retry(state: dict) -> str:
 def build_pipeline(db_path: str, llm: Any):
     """Build the LangGraph StateGraph.
 
-    LLM and db_path are injected via closures -- NOT in state.
-    This follows LangGraph best practices for serialization safety.
+    LLM and db_path are injected via closures — NOT in state.
+    Uses input=PublicState, output=PublicState to hide _retry_count from callers.
     """
-    builder = StateGraph(GraphState)
+    builder = StateGraph(GraphState, input_schema=PublicState, output_schema=PublicState)
 
     builder.add_node("match_drugs", make_match_node(db_path))
     builder.add_node("check_dur", make_dur_node(db_path))
@@ -221,20 +221,23 @@ def build_pipeline(db_path: str, llm: Any):
     builder.add_node("generate", _make_generate_node(llm))
     builder.add_node("verify", _verify_node)
 
-    builder.set_entry_point("match_drugs")
+    builder.add_edge(START, "match_drugs")
     builder.add_edge("match_drugs", "check_dur")
     builder.add_edge("check_dur", "collect_info")
     builder.add_edge("collect_info", "generate")
     builder.add_edge("generate", "verify")
     builder.add_conditional_edges("verify", _should_retry, {"generate": "generate", "done": END})
 
-    return builder.compile()
+    return builder.compile(checkpointer=False)  # batch pipeline, no persistence
 
 
 def run_pipeline(db_path: str, llm: Any, records: list[dict], profile_id: str = "default") -> dict:
-    """Run the full pipeline."""
+    """Run the full pipeline.
+
+    Returns PublicState dict (no internal keys like _retry_count).
+    """
     graph = build_pipeline(db_path, llm)
-    initial_state = {
+    initial_state: PublicState = {
         "profile_id": profile_id,
         "raw_records": records,
         "matched_drugs": [],
@@ -242,6 +245,5 @@ def run_pipeline(db_path: str, llm: Any, records: list[dict], profile_id: str = 
         "drug_infos": [],
         "guidance_result": None,
         "errors": [],
-        "_retry_count": 0,
     }
     return graph.invoke(initial_state)

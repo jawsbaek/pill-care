@@ -14,7 +14,7 @@ def make_match_node(db_path: str):
     def match_drugs_node(state: dict) -> dict:
         _db = Path(db_path)
         matched = []
-        errors = list(state.get("errors", []))
+        new_errors = []  # only new errors — reducer auto-accumulates
         for rec in state["raw_records"]:
             result = match_drug(_db, rec["drug_name"], edi_code=rec.get("drug_code"))
             if result:
@@ -28,8 +28,8 @@ def make_match_node(db_path: str):
                     match_score=result.score,
                 ).model_dump())
             else:
-                errors.append(f"매칭 실패: {rec['drug_name']}")
-        return {"matched_drugs": matched, "errors": errors}
+                new_errors.append(f"매칭 실패: {rec['drug_name']}")
+        return {"matched_drugs": matched, "errors": new_errors}
     return match_drugs_node
 
 
