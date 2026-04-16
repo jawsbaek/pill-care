@@ -34,7 +34,7 @@ def check_dur(db_path: Path, drugs: list[dict]) -> list[DurAlert]:
         dur_lookup[(row["ingr_code_2"], row["ingr_code_1"])] = entry
 
     alerts = []
-    seen: set[tuple[str, str, str, str]] = set()
+    seen: set[tuple] = set()
 
     for d1, d2 in combinations(drugs, 2):
         for code_a in d1["ingr_codes"]:
@@ -43,7 +43,11 @@ def check_dur(db_path: Path, drugs: list[dict]) -> list[DurAlert]:
                 if key not in dur_lookup:
                     continue
 
-                dedup_key = (d1["drug_name"], d2["drug_name"], code_a, code_b)
+                # Include department in dedup key so same drug from
+                # different clinics produces separate alerts
+                dedup_key = (d1["drug_name"], d1["department"],
+                             d2["drug_name"], d2["department"],
+                             code_a, code_b)
                 if dedup_key in seen:
                     continue
                 seen.add(dedup_key)

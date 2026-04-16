@@ -28,7 +28,8 @@ class PublicState(TypedDict, total=False):
 
 # Internal state: includes private keys not exposed in input/output
 class GraphState(PublicState, total=False):
-    _retry_count: int  # private — not in input/output schema
+    _retry_count: int             # private — retry cap
+    _last_verify_errors: list[str]  # private — latest verify pass only (not accumulated)
 
 
 # --- Section names for parsing ---
@@ -195,11 +196,16 @@ def _verify_node(state: dict) -> dict:
     dur_alerts = state.get("dur_alerts", [])
 
     new_errors = post_verify(result, dur_alerts)
-    return {"errors": new_errors, "_retry_count": retry_count + 1}
+    return {
+        "errors": new_errors,                # accumulated via reducer
+        "_last_verify_errors": new_errors,   # latest pass only (for retry decision)
+        "_retry_count": retry_count + 1,
+    }
 
 
 def _should_retry(state: dict) -> str:
-    errors = state.get("errors", [])
+    # Use latest verify pass only — not accumulated errors
+    errors = state.get("_last_verify_errors", [])
     critical = [e for e in errors if e.startswith("[CRITICAL]")]
     retry_count = state.get("_retry_count", 0)
     if critical and retry_count < 2:

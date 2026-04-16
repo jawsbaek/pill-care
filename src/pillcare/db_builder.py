@@ -170,9 +170,9 @@ def build_db(
     conn.execute(_FTS5_DDL)
     conn.execute(_FTS5_POPULATE)
 
-    # Upsert drugs_easy
+    # Upsert drugs_easy — always clear to avoid stale data on rebuild
+    conn.execute("DELETE FROM drugs_easy")
     if easy_data:
-        conn.execute("DELETE FROM drugs_easy")
         for item in easy_data:
             conn.execute(
                 """INSERT OR REPLACE INTO drugs_easy
