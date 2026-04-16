@@ -1,0 +1,30 @@
+[project]
+name = "pillcare"
+version = "0.1.0"
+description = "필케어 (PillCare) — 복약 정보 안내 파이프라인 POC"
+readme = "README.md"
+authors = [
+    { name = "jawsbaek", email = "bshjaws1@gmail.com" }
+]
+requires-python = ">=3.11"
+dependencies = [
+    "anthropic==0.95.0",
+    "langchain-anthropic==1.4.0",
+    "langchain-core==1.2.30",
+    "langgraph==1.1.6",
+    "msoffcrypto-tool==6.0.0",
+    "openpyxl==3.1.5",
+    "pydantic==2.13.1",
+    "python-dotenv==1.2.2",
+    "rapidfuzz==3.14.5",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "pytest==9.0.3",
+    "streamlit==1.56.0",
+]
