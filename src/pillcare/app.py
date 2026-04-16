@@ -1,6 +1,7 @@
 """Streamlit UI for PillCare medication guidance POC."""
 
 import os
+import tempfile
 from pathlib import Path
 
 import streamlit as st
@@ -62,9 +63,13 @@ def main():
             all_records = []
             for uf in uploaded_files:
                 dept = departments.get(uf.name, "미지정")
-                tmp_path = Path(f"/tmp/{uf.name}")
-                tmp_path.write_bytes(uf.read())
-                records = parse_history_xls(tmp_path, password=password, department=dept)
+                with tempfile.NamedTemporaryFile(suffix=".xls", delete=False) as tmp:
+                    tmp.write(uf.read())
+                    tmp_path = Path(tmp.name)
+                try:
+                    records = parse_history_xls(tmp_path, password=password, department=dept)
+                finally:
+                    tmp_path.unlink(missing_ok=True)
                 for rec in records:
                     all_records.append({
                         "drug_name": rec.drug_name,

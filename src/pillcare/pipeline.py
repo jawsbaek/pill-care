@@ -125,6 +125,7 @@ def _make_generate_node(llm: Any):
 
         # Generate per-drug guidance
         summary_points = []
+        generation_errors: list[str] = []
         for info in drug_infos:
             sections_text = ""
             if info.get("sections"):
@@ -161,6 +162,11 @@ def _make_generate_node(llm: Any):
                 response_text = response.content if isinstance(response.content, str) else str(response.content)
             except Exception as e:
                 response_text = f"### 1. 명칭\n[T1:허가정보] {info.get('item_name', '')}\n\n(LLM 오류: {e})"
+                generation_errors.append(f"[ERROR] LLM 호출 실패: {info.get('item_name', '')} — {e}")
+
+            # Apply banned word filter to generated text
+            from pillcare.guardrails import filter_banned_words
+            response_text = filter_banned_words(response_text)
 
             guidance = _parse_drug_guidance(info.get("item_name", ""), response_text)
             drug_guidances.append(guidance.model_dump())
@@ -177,7 +183,7 @@ def _make_generate_node(llm: Any):
             summary=list(set(summary_points)),
             warning_labels=warning_labels,
         )
-        return {"guidance_result": result.model_dump()}
+        return {"guidance_result": result.model_dump(), "errors": generation_errors}
 
     return generate_node
 
@@ -234,7 +240,7 @@ def build_pipeline(db_path: str, llm: Any):
     builder.add_edge("generate", "verify")
     builder.add_conditional_edges("verify", _should_retry, {"generate": "generate", "done": END})
 
-    return builder.compile(checkpointer=False)  # batch pipeline, no persistence
+    return builder.compile()  # batch pipeline — no checkpointer needed
 
 
 def run_pipeline(db_path: str, llm: Any, records: list[dict], profile_id: str = "default") -> dict:

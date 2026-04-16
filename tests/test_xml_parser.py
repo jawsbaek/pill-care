@@ -45,6 +45,11 @@ def test_parse_empty_xml():
     assert sections == []
 
 
+def test_parse_malformed_xml():
+    sections = parse_nb_doc("<DOC><broken><no closing tag")
+    assert sections == []
+
+
 def test_parse_none():
     sections = parse_nb_doc(None)
     assert sections == []

@@ -58,51 +58,46 @@ def match_drug(
 ) -> DrugMatch | None:
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
+    try:
+        # Phase 1: EDI code match
+        if edi_code:
+            row = conn.execute(
+                "SELECT * FROM drugs WHERE edi_code = ?", (edi_code,)
+            ).fetchone()
+            if row:
+                return _row_to_match(row, 100)
 
-    # Phase 1: EDI code match
-    if edi_code:
+        # Phase 2: Exact item_name match
         row = conn.execute(
-            "SELECT * FROM drugs WHERE edi_code = ?", (edi_code,)
+            "SELECT * FROM drugs WHERE item_name = ?", (query,)
         ).fetchone()
         if row:
-            result = _row_to_match(row, 100)
-            conn.close()
-            return result
+            return _row_to_match(row, 100)
 
-    # Phase 2: Exact item_name match
-    row = conn.execute(
-        "SELECT * FROM drugs WHERE item_name = ?", (query,)
-    ).fetchone()
-    if row:
-        result = _row_to_match(row, 100)
+        # Phase 3: FTS5 trigram search
+        try:
+            fts_rows = conn.execute(
+                "SELECT d.* FROM drugs_fts f JOIN drugs d ON f.rowid = d.rowid "
+                "WHERE drugs_fts MATCH ? ORDER BY rank LIMIT 5",
+                (query,),
+            ).fetchall()
+            if fts_rows:
+                best_score = 0
+                best_row = None
+                for r in fts_rows:
+                    s = _best_fuzzy_score(query, r["item_name"])
+                    if s > best_score:
+                        best_score = s
+                        best_row = r
+                if best_row and best_score >= min_score:
+                    return _row_to_match(best_row, best_score)
+        except sqlite3.OperationalError:
+            pass  # FTS5 table missing or query syntax error — fall through to Phase 4
+
+        # Phase 4: Full scan with rapidfuzz
+        rows = conn.execute("SELECT * FROM drugs").fetchall()
+    finally:
         conn.close()
-        return result
-
-    # Phase 3: FTS5 trigram search
-    try:
-        fts_rows = conn.execute(
-            "SELECT d.* FROM drugs_fts f JOIN drugs d ON f.rowid = d.rowid "
-            "WHERE drugs_fts MATCH ? ORDER BY rank LIMIT 5",
-            (query,),
-        ).fetchall()
-        if fts_rows:
-            best_score = 0
-            best_row = None
-            for r in fts_rows:
-                s = _best_fuzzy_score(query, r["item_name"])
-                if s > best_score:
-                    best_score = s
-                    best_row = r
-            if best_row and best_score >= min_score:
-                result = _row_to_match(best_row, best_score)
-                conn.close()
-                return result
-    except sqlite3.OperationalError:
-        pass
-
-    # Phase 4: Full scan with rapidfuzz
-    rows = conn.execute("SELECT * FROM drugs").fetchall()
-    conn.close()
 
     best_score = 0
     best_row = None

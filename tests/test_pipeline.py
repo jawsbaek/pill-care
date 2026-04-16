@@ -140,3 +140,23 @@ def test_full_pipeline_with_mock_llm(full_db, sample_records):
     assert result["profile_id"] == "test-user"
     assert len(result["matched_drugs"]) == 2
     assert len(result["dur_alerts"]) >= 1
+
+
+def test_should_retry_on_critical():
+    """Retry is triggered by [CRITICAL] errors and capped at 2."""
+    from pillcare.pipeline import _should_retry
+
+    # No errors → done
+    assert _should_retry({"_last_verify_errors": [], "_retry_count": 0}) == "done"
+
+    # CRITICAL + count 0 → retry
+    assert _should_retry({"_last_verify_errors": ["[CRITICAL] T4 비율 초과"], "_retry_count": 0}) == "generate"
+
+    # CRITICAL + count 1 → retry (< 2)
+    assert _should_retry({"_last_verify_errors": ["[CRITICAL] T4 비율 초과"], "_retry_count": 1}) == "generate"
+
+    # CRITICAL + count 2 → done (cap reached)
+    assert _should_retry({"_last_verify_errors": ["[CRITICAL] T4 비율 초과"], "_retry_count": 2}) == "done"
+
+    # Non-critical errors → done regardless
+    assert _should_retry({"_last_verify_errors": ["출처 태그 누락: A / 명칭"], "_retry_count": 0}) == "done"
