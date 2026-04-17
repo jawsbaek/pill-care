@@ -1,7 +1,7 @@
 """4-phase drug matcher: EDI → Exact → FTS5 → Fuzzy.
 
 A3 additions:
-    - ``expand_query_with_synonyms`` uses ``data/ingredient_synonyms.json`` to
+    - ``expand_query_with_synonyms`` uses ``src/pillcare/_data/ingredient_synonyms.json`` to
       rewrite cross-language queries (KOR ↔ ENG) before matching. This lets
       "acetaminophen 500mg" also hit "아세트아미노펜" products and vice versa.
     - ``_dose_matches`` enforces that a query-specified dose is present in the
@@ -57,11 +57,8 @@ def _canonical_mg(number: str, unit: str) -> float | None:
     return float(number) * factor
 
 
-# data/ingredient_synonyms.json lives at <repo-root>/data/...; this file is at
-# <repo-root>/src/pillcare/drug_matcher.py, so go up two parents.
-_SYNONYMS_PATH = (
-    Path(__file__).resolve().parents[2] / "data" / "ingredient_synonyms.json"
-)
+# Synonym dict ships as a package asset under src/pillcare/_data/.
+_SYNONYMS_PATH = Path(__file__).resolve().parent / "_data" / "ingredient_synonyms.json"
 
 
 @lru_cache(maxsize=1)

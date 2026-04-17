@@ -3,22 +3,22 @@
 Source priority:
     1. SQLite ``pillcare.db`` ``drugs`` table (columns ``main_item_ingr`` +
        ``main_ingr_eng``) if the DB exists.
-    2. Otherwise ``data/drug_permit_detail.csv`` (raw MFDS crawl), which is
-       always present in the repository.
+    2. Otherwise ``data/drug_permit_detail.csv`` (raw MFDS crawl, not
+       tracked in git — must be downloaded locally before running).
 
 The ``main_item_ingr`` column stores the Korean ingredient name prefixed with
 an MFDS code in square brackets (e.g. ``[M040702]이부프로펜``). Multi-component
 products delimit ingredients with ``|`` on the Korean side and ``/`` on the
 English side. We align by index and emit bidirectional KOR <-> ENG pairs.
 
-After running, optionally merge ``data/ingredient_synonyms_manual.json`` for
-curated salt-form / brand-name additions.
+After running, the curated salt-form / brand-name supplement at
+``src/pillcare/_data/ingredient_synonyms_manual.json`` is merged automatically.
 
 Usage:
     uv run python scripts/build_ingredient_synonyms.py
 
 Output:
-    data/ingredient_synonyms.json
+    src/pillcare/_data/ingredient_synonyms.json
 """
 
 from __future__ import annotations
@@ -158,9 +158,10 @@ def build_synonyms(
 
 if __name__ == "__main__":
     root = Path(__file__).resolve().parent.parent
+    pkg_data = root / "src" / "pillcare" / "_data"
     build_synonyms(
-        out_path=root / "data" / "ingredient_synonyms.json",
+        out_path=pkg_data / "ingredient_synonyms.json",
         db_path=root / "pillcare.db",
-        csv_path=root / "data" / "drug_permit_detail.csv",
-        manual_path=root / "data" / "ingredient_synonyms_manual.json",
+        csv_path=root / "data" / "drug_permit_detail.csv",  # local-only, not in git
+        manual_path=pkg_data / "ingredient_synonyms_manual.json",
     )
