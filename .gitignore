@@ -23,4 +23,8 @@ hf-cache/
 models/
 
 # Raw MFDS/HIRA data (downloaded from GCS at runtime, do not commit)
-data/
+data/*
+
+# Gold set is evaluation asset — tracked in git even though raw MFDS data isn't
+!data/gold_set/
+!data/gold_set/**
