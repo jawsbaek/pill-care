@@ -13,18 +13,19 @@
 **필케어 (PillCare)** — 공인 데이터 기반 grounded 복약 정보 안내 AI 에이전트
 
 ### 1.2 하드웨어 포함 여부
-포함하지 않음. 웹 브라우저만 요구.
+**미포함** — 순수 소프트웨어 서비스(웹 브라우저 기반). 로봇·자율주행·드론 등 물리시스템과 결합하지 않는다.
 
 ### 1.3 활용분야
-범용 의료·헬스케어 — 만성질환·다약제 복용 환자 대상 복약 정보 안내.
+전문 분야 5개 — **의료·헬스케어, 복약안전(DUR), 만성질환 관리, 환자 교육, 고령층 자가 건강관리**.
 
 - **1차 타겟**: 2025-06 기준 10종+60일+ 복용자 **171만 7천여 명** (65세+ 80.6%, 2020 대비 +52.5%)
 - **수요 환경**: 외래진료 연 18회 (OECD 평균 약 3배)
 - **확장 경로**: 한국 → 일본·대만 → EU/US senior care
 
-### 1.4 기술숙성도
+### 1.4 기술성숙도 — 시작품 단계
+본 제안의 통합 아키텍처는 **시작품 단계** (파일롯 규모 시작품 + Cloud Run 공개 시연 + 200 gold set 현장 검증). 구성 기술은 대부분 제품화되어 있다.
 
-| 구성 요소 | 숙성도 |
+| 구성 요소 | 단계 |
 |---|---|
 | 공인 데이터 허브 (식약처 3종 + HIRA DUR 8종 + KAERS + 회수) | 제품화 |
 | SQLite + FTS5 trigram 검색 | 제품화 |
@@ -33,18 +34,30 @@
 | KURE-v1 임베딩 (Ko-MTEB 2025 SOTA) | 제품화 |
 | Evidence Tier Tagging (MedConf 차용) · LLM-as-judge Critic (AMIE 차용) | 시작품 |
 | GCP Cloud Run + Workload Identity + CI/CD | 제품화 |
-| **통합 아키텍처 (본 제안)** | **시작품(Prototype)** |
+| **통합 아키텍처 (본 제안)** | **시작품** |
 
-> 구성 기술은 대부분 제품화 단계이며, 본 제안의 고유 지점은 이들을 결합한 한국 복약 도메인 grounded 에이전트 아키텍처다.
+### 1.5 도입 수준 — 도입 전
+**본 기술: 도입 전** (2026-04 현재 Cloud Run 공개 데모·시연 단계, 상용 사용자·고객사 없음).
 
-### 1.5 도입수준
-국내 규칙 기반 복약 앱은 **도입 증가**, 본 제안의 Deterministic DUR + Grounded LLM 하이브리드는 **도입 전 / 도입 초기**. HIRA DUR 8종 + Structured Output + 출처 계층 + LLM-as-judge critic 결합 사례는 공개 확인되지 않음.
+참고: 국내 규칙 기반 복약 앱(약올림·필로우 등)은 **도입 증가** 구간이나, HIRA DUR 8종 + Structured Output + 출처 계층 + LLM-as-judge critic을 결합한 **grounded 복약 에이전트는 공개 선행 사례 미확인**.
 
-### 1.6 유사기술 비교표
-(§1 섹션 파일 참조 — 7행 × 6열 표. 상세 `section-1-overview.md#16-유사기술-비교표`)
+### 1.6 유사 기술
+**국내**
+- 규칙 기반 복약 알림 앱 — 약올림 · 필로우 · 올라케어 (복약 알림·기본 DB 조회)
+- 범용 의료 LLM 서비스 — 카카오 케어챗 · 닥터나우 AI (비대면 상담·범용 질의응답)
+- 공공 약물 조회 — HIRA '내가 먹는 약 한눈에' (경쟁자 아닌 **데이터 파트너**, 2025 하반기 건강정보고속도로 1,263개소 확대)
+
+**해외**
+- 범용 LLM 의료 모드 — OpenAI ChatGPT Health · Google Gemini · Ada Health (소비자 Q&A)
+- 의료 에이전트 연구 — Google AMIE · MedAgentBoard (진단·대화형, 연구 단계)
+- 복약 리마인더 앱 — Medisafe Care · MyTherapy (리마인더 + 일부 GenAI Q&A)
 
 ### 1.7 차별점
-① Deterministic DUR + Grounded LLM 하이브리드 (MedAgentBoard NeurIPS 2025 정합) · ② 멀티-과·약국 통합 DUR (HIRA 8종 + N×N) · ③ 한국 공공 완전 통합 + 결선 국제 브리지 · ④ Zero-License-Risk Stack · ⑤ AI Harness (5-Layer Guardrail + 의도 분류기 + 600 gold set).
+① **Deterministic DUR + Grounded LLM 하이브리드** — 안전 판단은 SQL 결정론, 설명만 LLM Structured Output (MedAgentBoard NeurIPS 2025 정합)
+② **멀티-과·약국 통합 DUR** — HIRA 8종 + N×N 성분쌍으로 171만 명 사각지대 해소
+③ **한국 공공 데이터 완전 통합 + 국제 브리지** — 데모: 식약처+HIRA+KAERS+회수 / 결선: RxNorm+DailyMed
+④ **Zero-License-Risk Stack** — KOGL Type 1 · Public Domain · CC0만 사용, DrugBank(CC BY-NC) 등 상용 DDI 배제
+⑤ **AI Harness** — 6-Layer Guardrail(금칙어·출처·DUR·종결·NLI ≥0.75·의도 ≥0.70) + Langfuse + RAGAS + 600 gold set + GitHub Actions 3-gate
 
 ### 2.1 기술 목적 (도입부)
 공공 DUR은 약국 단위 일회성 체크에 머물러 다기관 처방 간 상호작용은 **사각지대**로 남아 있고, ED 방문의 3.5%가 약물 이상반응·그중 **15.3% 예방 가능**. 범용 LLM은 구조적으로 환각 차단이 불가능해(MedHallu F1 0.625, Ren et al. 2026 AUROC 랜덤 붕괴) 고위험 복약 도메인에선 환자 안전 위협이 된다.

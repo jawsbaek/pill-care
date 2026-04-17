@@ -4,9 +4,18 @@ FROM --platform=linux/amd64 ghcr.io/astral-sh/uv:python3.14-bookworm-slim AS bui
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
     UV_PYTHON_DOWNLOADS=0 \
-    HF_HOME=/app/hf-cache
+    HF_HOME=/app/hf-cache \
+    DEBIAN_FRONTEND=noninteractive
 
 WORKDIR /app
+
+# Build toolchain for C++ wheels (scikit-network via ragas). Stays in
+# builder stage only — runtime image does not receive these packages.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        build-essential \
+        g++ \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install dependencies first (cache-friendly layer ordering)
 RUN --mount=type=cache,target=/root/.cache/uv \

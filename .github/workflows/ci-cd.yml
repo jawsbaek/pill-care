@@ -45,8 +45,8 @@ jobs:
       - uses: astral-sh/setup-uv@v5
         with:
           version: "latest"
-      - name: Install dependencies
-        run: uv sync --frozen
+      - name: Install dependencies (with eval extras)
+        run: uv sync --frozen --extra eval
       - name: Run RAGAS eval on gold set (soft-gate)
         env:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}

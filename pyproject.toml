@@ -9,23 +9,35 @@ authors = [
 requires-python = ">=3.14"
 dependencies = [
     "anthropic==0.95.0",
-    "datasets>=3.0.0",
     "google-cloud-storage>=3.10,<4.0",
     "huggingface-hub>=0.25.0",
     "langchain-anthropic==1.4.0",
     "langchain-core==1.2.30",
     "langchain-google-genai==4.2.2",
-    "langfuse>=3.0.0",
     "langgraph==1.1.6",
     "msoffcrypto-tool==6.0.0",
     "openpyxl==3.1.5",
     "pydantic==2.13.1",
     "python-dotenv==1.2.2",
-    "ragas>=0.3.0",
     "rapidfuzz==3.14.5",
     "sentence-transformers>=3.3.0",
     "streamlit==1.56.0",
+    # Explicit torch dep activates `[tool.uv.sources]` CPU index override.
+    # Without this, sentence-transformers pulls the default CUDA variant
+    # (adds ~3GB of nvidia-* libs). Transitive source propagation only
+    # works when torch is a direct project dependency.
+    "torch>=2.0",
     "transformers>=4.50.0",
+]
+
+[project.optional-dependencies]
+# CI eval harness (Langfuse trace + RAGAS + HF datasets). Not in runtime
+# image — keeps Cloud Run image under the 4GB 1st-gen limit. Install with
+# `uv sync --extra eval` locally or via GitHub Actions eval job.
+eval = [
+    "datasets>=3.0.0",
+    "langfuse>=3.0.0",
+    "ragas>=0.3.0",
 ]
 
 [build-system]
@@ -45,3 +57,15 @@ target-version = "py314"
 markers = [
     "slow: marks tests as slow (model-loading, deselect with '-m \"not slow\"')",
 ]
+
+# Use CPU-only PyTorch wheels (avoids ~2-3GB CUDA libraries for a CPU-only
+# inference deployment). sentence-transformers pulls torch transitively;
+# the source override propagates.
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+torchvision = { index = "pytorch-cpu" }
