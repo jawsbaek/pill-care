@@ -23,7 +23,19 @@
 - **확장 경로**: 한국 → 일본·대만 → EU/US senior care
 
 ### 1.4 기술숙성도
-식약처 3종·HIRA DUR 8종·LangGraph 1.1.6·Gemini/Claude Structured Output·DeBERTa-v3 NLI·KURE-v1·Cloud Run CI/CD — 모두 **제품화**. Evidence Tier Tagging(MedConf 차용) · LLM-as-judge Critic(AMIE 차용) · **통합 아키텍처는 시작품(Prototype)**.
+
+| 구성 요소 | 숙성도 |
+|---|---|
+| 공인 데이터 허브 (식약처 3종 + HIRA DUR 8종 + KAERS + 회수) | 제품화 |
+| SQLite + FTS5 trigram 검색 | 제품화 |
+| LangGraph 기반 에이전트 파이프라인 (v1.1.6) | 제품화 |
+| Gemini 2.5 Flash / Claude Sonnet 4.6 Structured Output | 제품화 |
+| KURE-v1 임베딩 (Ko-MTEB 2025 SOTA) | 제품화 |
+| Evidence Tier Tagging (MedConf 차용) · LLM-as-judge Critic (AMIE 차용) | 시작품 |
+| GCP Cloud Run + Workload Identity + CI/CD | 제품화 |
+| **통합 아키텍처 (본 제안)** | **시작품(Prototype)** |
+
+> 구성 기술은 대부분 제품화 단계이며, 본 제안의 고유 지점은 이들을 결합한 한국 복약 도메인 grounded 에이전트 아키텍처다.
 
 ### 1.5 도입수준
 국내 규칙 기반 복약 앱은 **도입 증가**, 본 제안의 Deterministic DUR + Grounded LLM 하이브리드는 **도입 전 / 도입 초기**. HIRA DUR 8종 + Structured Output + 출처 계층 + LLM-as-judge critic 결합 사례는 공개 확인되지 않음.
