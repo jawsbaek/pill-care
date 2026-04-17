@@ -11,6 +11,7 @@ from pillcare.schemas import DurAlertModel, MatchedDrug
 
 def make_match_node(db_path: str):
     """Factory: creates match_drugs node with db_path bound via closure."""
+
     def match_drugs_node(state: dict) -> dict:
         _db = Path(db_path)
         matched = []
@@ -18,46 +19,61 @@ def make_match_node(db_path: str):
         for rec in state["raw_records"]:
             result = match_drug(_db, rec["drug_name"], edi_code=rec.get("drug_code"))
             if result:
-                matched.append(MatchedDrug(
-                    item_seq=result.item_seq,
-                    drug_name=rec["drug_name"],
-                    item_name=result.item_name,
-                    department=rec.get("department", "미지정"),
-                    ingr_codes=result.ingr_codes,
-                    edi_code=rec.get("drug_code"),
-                    match_score=result.score,
-                ).model_dump())
+                matched.append(
+                    MatchedDrug(
+                        item_seq=result.item_seq,
+                        drug_name=rec["drug_name"],
+                        item_name=result.item_name,
+                        department=rec.get("department", "미지정"),
+                        ingr_codes=result.ingr_codes,
+                        edi_code=rec.get("drug_code"),
+                        match_score=result.score,
+                    ).model_dump()
+                )
             else:
                 new_errors.append(f"매칭 실패: {rec['drug_name']}")
         return {"matched_drugs": matched, "errors": new_errors}
+
     return match_drugs_node
 
 
 def make_dur_node(db_path: str):
     """Factory: creates check_dur node with db_path bound via closure."""
+
     def check_dur_node(state: dict) -> dict:
         drugs_for_check = [
-            {"drug_name": d["drug_name"], "department": d["department"], "ingr_codes": d["ingr_codes"]}
+            {
+                "drug_name": d["drug_name"],
+                "department": d["department"],
+                "ingr_codes": d["ingr_codes"],
+            }
             for d in state["matched_drugs"]
         ]
         alerts = check_dur(Path(db_path), drugs_for_check)
         return {
             "dur_alerts": [
                 DurAlertModel(
-                    drug_name_1=a.drug_name_1, department_1=a.department_1,
-                    ingr_code_1=a.ingr_code_1, ingr_name_1=a.ingr_name_1,
-                    drug_name_2=a.drug_name_2, department_2=a.department_2,
-                    ingr_code_2=a.ingr_code_2, ingr_name_2=a.ingr_name_2,
-                    reason=a.reason, cross_clinic=a.cross_clinic,
+                    drug_name_1=a.drug_name_1,
+                    department_1=a.department_1,
+                    ingr_code_1=a.ingr_code_1,
+                    ingr_name_1=a.ingr_name_1,
+                    drug_name_2=a.drug_name_2,
+                    department_2=a.department_2,
+                    ingr_code_2=a.ingr_code_2,
+                    ingr_name_2=a.ingr_name_2,
+                    reason=a.reason,
+                    cross_clinic=a.cross_clinic,
                 ).model_dump()
                 for a in alerts
             ]
         }
+
     return check_dur_node
 
 
 def make_collect_node(db_path: str):
     """Factory: creates collect_info node with db_path bound via closure."""
+
     def collect_info_node(state: dict) -> dict:
         infos = []
         for drug in state["matched_drugs"]:
@@ -65,4 +81,5 @@ def make_collect_node(db_path: str):
             if info:
                 infos.append(asdict(info))
         return {"drug_infos": infos}
+
     return collect_info_node

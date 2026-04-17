@@ -1,6 +1,7 @@
 """Pydantic models for pipeline state and structured output."""
 
 from enum import Enum
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -46,6 +47,70 @@ class DrugGuidance(BaseModel):
     sections: dict[str, GuidanceSection] = Field(default_factory=dict)
 
 
+SECTION_NAMES = Literal[
+    "명칭",
+    "성상",
+    "효능효과",
+    "투여의의",
+    "용법용량",
+    "저장방법",
+    "주의사항",
+    "상호작용",
+    "투여종료후",
+    "기타",
+]
+
+SOURCE_TIER_LABELS = Literal["T1:허가정보", "T1:e약은요", "T1:DUR", "T4:AI"]
+
+_TIER_LABEL_MAP: dict[str, SourceTier] = {
+    "T1:허가정보": SourceTier.T1_PERMIT,
+    "T1:e약은요": SourceTier.T1_EASY,
+    "T1:DUR": SourceTier.T1_DUR,
+    "T4:AI": SourceTier.T4_AI,
+}
+
+
+class DrugSectionOutput(BaseModel):
+    """LLM structured output schema for a single drug section."""
+
+    section_name: SECTION_NAMES
+    content: str
+    source_tier: SOURCE_TIER_LABELS
+
+
+class DrugGuidanceOutput(BaseModel):
+    """LLM structured output schema for complete drug guidance."""
+
+    drug_name: str
+    sections: list[DrugSectionOutput]
+
+    def to_drug_guidance(self) -> DrugGuidance:
+        """Convert LLM structured output to internal DrugGuidance model."""
+        sections_dict: dict[str, GuidanceSection] = {}
+        for s in self.sections:
+            tier = _TIER_LABEL_MAP[s.source_tier]
+            if s.section_name in sections_dict:
+                existing = sections_dict[s.section_name]
+                merged_content = existing.content + "\n" + s.content
+                keep_tier = (
+                    existing.source_tier
+                    if existing.source_tier != SourceTier.T4_AI
+                    else tier
+                )
+                sections_dict[s.section_name] = GuidanceSection(
+                    title=s.section_name,
+                    content=merged_content,
+                    source_tier=keep_tier,
+                )
+            else:
+                sections_dict[s.section_name] = GuidanceSection(
+                    title=s.section_name,
+                    content=s.content,
+                    source_tier=tier,
+                )
+        return DrugGuidance(drug_name=self.drug_name, sections=sections_dict)
+
+
 class DurWarning(BaseModel):
     drug_1: str
     drug_2: str
@@ -68,16 +133,3 @@ class GuidanceResult(BaseModel):
                 if section.source_tier == SourceTier.T4_AI:
                     t4_count += 1
         return t4_count / total if total > 0 else 0.0
-
-
-# Note: LangGraph uses GraphState (TypedDict) in pipeline.py as runtime container.
-# This is the serializable subset (no _llm, no _retry_count).
-class PipelineState(BaseModel):
-    profile_id: str
-    raw_records: list[dict] = Field(default_factory=list)
-    matched_drugs: list[MatchedDrug] = Field(default_factory=list)
-    dur_alerts: list[DurAlertModel] = Field(default_factory=list)
-    drug_infos: list[dict] = Field(default_factory=list)
-    guidance_result: GuidanceResult | None = None
-    errors: list[str] = Field(default_factory=list)
-    db_path: str = ""

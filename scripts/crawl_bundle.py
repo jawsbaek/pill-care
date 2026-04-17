@@ -12,12 +12,24 @@ NUM_OF_ROWS = 100
 OUTPUT_DIR = Path(__file__).resolve().parent.parent / "data"
 
 CSV_FIELDS = [
-    "trustIndutyCode", "trustItemName", "trustMainingr", "trustQntList",
-    "trustEntpName", "trustManuf", "trustItemPermitDate",
-    "trustHiraMainingrCode", "trustHiraPrductCode", "trustAtcCode",
+    "trustIndutyCode",
+    "trustItemName",
+    "trustMainingr",
+    "trustQntList",
+    "trustEntpName",
+    "trustManuf",
+    "trustItemPermitDate",
+    "trustHiraMainingrCode",
+    "trustHiraPrductCode",
+    "trustAtcCode",
     "trustCancelName",
-    "cnsgnItemSeq", "cnsgnItemName", "cnsgnEntpName", "cnsgnManuf",
-    "cnsgnItemPermitDate", "cnsgnHiraPrductCode", "cnsgnCancelName",
+    "cnsgnItemSeq",
+    "cnsgnItemName",
+    "cnsgnEntpName",
+    "cnsgnManuf",
+    "cnsgnItemPermitDate",
+    "cnsgnHiraPrductCode",
+    "cnsgnCancelName",
 ]
 
 
@@ -39,14 +51,22 @@ def crawl_all() -> list[dict]:
     all_items = []
     items_raw = first["body"].get("items", [])
     for item in items_raw:
-        all_items.append(item.get("item", item) if isinstance(item, dict) and "item" in item else item)
+        all_items.append(
+            item.get("item", item)
+            if isinstance(item, dict) and "item" in item
+            else item
+        )
 
     for page in range(2, total_pages + 1):
         try:
             data = fetch_page(page)
             items_raw = data["body"].get("items", [])
             for item in items_raw:
-                all_items.append(item.get("item", item) if isinstance(item, dict) and "item" in item else item)
+                all_items.append(
+                    item.get("item", item)
+                    if isinstance(item, dict) and "item" in item
+                    else item
+                )
             if page % 20 == 0:
                 print(f"  page {page}/{total_pages} — {len(all_items)} items")
             time.sleep(0.2)
@@ -57,7 +77,11 @@ def crawl_all() -> list[dict]:
                 data = fetch_page(page)
                 items_raw = data["body"].get("items", [])
                 for item in items_raw:
-                    all_items.append(item.get("item", item) if isinstance(item, dict) and "item" in item else item)
+                    all_items.append(
+                        item.get("item", item)
+                        if isinstance(item, dict) and "item" in item
+                        else item
+                    )
             except Exception as e2:
                 print(f"  RETRY FAILED page {page}: {e2}")
 

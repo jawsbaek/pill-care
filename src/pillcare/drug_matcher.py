@@ -21,6 +21,13 @@ class DrugMatch:
 
 _INGR_CODE_RE = re.compile(r"\[([A-Z]\d+)\]")
 
+_FTS5_UNSAFE = re.compile(r'["\(\)\*\-\+\:\^]')
+
+
+def _sanitize_fts5(query: str) -> str:
+    """Remove FTS5 special characters to prevent syntax errors."""
+    return _FTS5_UNSAFE.sub(" ", query).strip()
+
 
 def extract_ingr_codes(main_item_ingr: str | None) -> list[str]:
     if not main_item_ingr:
@@ -30,11 +37,13 @@ def extract_ingr_codes(main_item_ingr: str | None) -> list[str]:
 
 def _best_fuzzy_score(query: str, candidate: str) -> int:
     """Return the best fuzzy score across multiple strategies."""
-    return int(max(
-        fuzz.token_set_ratio(query, candidate),
-        fuzz.partial_ratio(query, candidate),
-        fuzz.ratio(query, candidate),
-    ))
+    return int(
+        max(
+            fuzz.token_set_ratio(query, candidate),
+            fuzz.partial_ratio(query, candidate),
+            fuzz.ratio(query, candidate),
+        )
+    )
 
 
 def _row_to_match(row: sqlite3.Row, score: int) -> DrugMatch:
@@ -58,6 +67,7 @@ def match_drug(
 ) -> DrugMatch | None:
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
+    rows = []
     try:
         # Phase 1: EDI code match
         if edi_code:
@@ -75,12 +85,17 @@ def match_drug(
             return _row_to_match(row, 100)
 
         # Phase 3: FTS5 trigram search
+        rows = []
         try:
-            fts_rows = conn.execute(
-                "SELECT d.* FROM drugs_fts f JOIN drugs d ON f.rowid = d.rowid "
-                "WHERE drugs_fts MATCH ? ORDER BY rank LIMIT 5",
-                (query,),
-            ).fetchall()
+            sanitized = _sanitize_fts5(query)
+            if sanitized:
+                fts_rows = conn.execute(
+                    "SELECT d.* FROM drugs_fts f JOIN drugs d ON f.rowid = d.rowid "
+                    "WHERE drugs_fts MATCH ? ORDER BY rank LIMIT 5",
+                    (sanitized,),
+                ).fetchall()
+            else:
+                fts_rows = []
             if fts_rows:
                 best_score = 0
                 best_row = None
@@ -95,7 +110,9 @@ def match_drug(
             pass  # FTS5 table missing or query syntax error — fall through to Phase 4
 
         # Phase 4: Full scan with rapidfuzz
-        rows = conn.execute("SELECT * FROM drugs").fetchall()
+        rows = conn.execute(
+            "SELECT item_seq, item_name, main_item_ingr, main_ingr_eng, atc_code, edi_code FROM drugs"
+        ).fetchall()
     finally:
         conn.close()
 

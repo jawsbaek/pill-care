@@ -1,7 +1,8 @@
 """Tests for DUR CSV normalizer."""
+
 from pathlib import Path
 import pytest
-from pillcare.dur_normalizer import normalize_dur, DurPair
+from pillcare.dur_normalizer import normalize_dur
 
 
 @pytest.fixture
@@ -20,7 +21,8 @@ def test_normalize_dur_deduplicates_to_ingredient_level(small_dur_path):
 def test_normalize_dur_merges_reason_text_variants(small_dur_path):
     pairs = normalize_dur(small_dur_path, encoding="utf-8")
     met_pair = next(
-        p for p in pairs
+        p
+        for p in pairs
         if "메트포르민" in p.ingr_name_1 or "메트포르민" in p.ingr_name_2
     )
     assert "유산" in met_pair.reason
@@ -30,8 +32,7 @@ def test_normalize_dur_merges_reason_text_variants(small_dur_path):
 def test_normalize_dur_pair_fields(small_dur_path):
     pairs = normalize_dur(small_dur_path, encoding="utf-8")
     ibu_warf = next(
-        p for p in pairs
-        if "이부프로펜" in p.ingr_name_1 and "와파린" in p.ingr_name_2
+        p for p in pairs if "이부프로펜" in p.ingr_name_1 and "와파린" in p.ingr_name_2
     )
     assert ibu_warf.ingr_code_1 == "M040702"
     assert ibu_warf.ingr_code_2 == "M04790101"

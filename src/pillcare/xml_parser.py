@@ -76,11 +76,13 @@ def parse_nb_doc(xml_str: str | None) -> list[Section]:
             continue
         clean_title = re.sub(r"^\d+\.\s*", "", title)
         section_type = _classify_title(clean_title)
-        sections.append(Section(
-            section_type=section_type,
-            section_title=title,
-            section_text=text,
-            section_order=order,
-        ))
+        sections.append(
+            Section(
+                section_type=section_type,
+                section_title=title,
+                section_text=text,
+                section_order=order,
+            )
+        )
         order += 1
     return sections
