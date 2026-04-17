@@ -6,12 +6,14 @@ from pathlib import Path
 from pillcare.drug_info import get_drug_info
 from pillcare.drug_matcher import match_drug
 from pillcare.dur_checker import check_dur
+from pillcare.observability import observe
 from pillcare.schemas import DurAlertModel, MatchedDrug
 
 
 def make_match_node(db_path: str):
     """Factory: creates match_drugs node with db_path bound via closure."""
 
+    @observe(name="match_drugs")
     def match_drugs_node(state: dict) -> dict:
         _db = Path(db_path)
         matched = []
@@ -40,6 +42,7 @@ def make_match_node(db_path: str):
 def make_dur_node(db_path: str):
     """Factory: creates check_dur node with db_path bound via closure."""
 
+    @observe(name="check_dur")
     def check_dur_node(state: dict) -> dict:
         drugs_for_check = [
             {
@@ -74,6 +77,7 @@ def make_dur_node(db_path: str):
 def make_collect_node(db_path: str):
     """Factory: creates collect_info node with db_path bound via closure."""
 
+    @observe(name="collect_info")
     def collect_info_node(state: dict) -> dict:
         infos = []
         for drug in state["matched_drugs"]:

@@ -7,6 +7,7 @@ from typing import Annotated, Any, TypedDict
 from langchain_core.messages import HumanMessage, SystemMessage
 from langgraph.graph import END, START, StateGraph
 
+from pillcare.observability import observe
 from pillcare.prompts import (
     DRUG_GUIDANCE_TEMPLATE,
     EVIDENCE_TIER_INSTRUCTION,
@@ -54,6 +55,7 @@ class GraphState(PublicState, total=False):
 def _make_generate_node(llm: Any):
     """Factory: creates generate node with LLM bound via closure."""
 
+    @observe(name="generate")
     def generate_node(state: dict) -> dict:
         drug_infos = state.get("drug_infos", [])
         dur_alerts = state.get("dur_alerts", [])
@@ -205,12 +207,14 @@ def _make_critic_node(critic_llm: Any):
     injected via closure rather than read from state.
     """
 
+    @observe(name="critic")
     def critic_fn(state: dict) -> dict:
         return _critic_impl(state, llm=critic_llm)
 
     return critic_fn
 
 
+@observe(name="verify")
 def _verify_node(state: dict) -> dict:
     """Post-verification node."""
     result_data = state.get("guidance_result")

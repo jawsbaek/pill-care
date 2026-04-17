@@ -35,6 +35,32 @@ jobs:
       - name: Test
         run: uv run pytest --tb=short
 
+  eval:
+    needs: [lint-test]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+      - name: Install dependencies
+        run: uv sync --frozen
+      - name: Run RAGAS eval on gold set (soft-gate)
+        env:
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}
+          LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
+          LANGFUSE_HOST: ${{ secrets.LANGFUSE_HOST }}
+        # continue-on-error at the job level already prevents blocking, but we
+        # also || echo so the step exits 0 in logs until the gold set + keys
+        # are wired up. Flip to hard-gate by removing both once ready.
+        run: |
+          uv run python -m pillcare.eval.run_gold_eval \
+            --threshold-faith 0.80 --threshold-cp 0.75 --threshold-ar 0.70 \
+            || echo "Eval failed (soft-gate — does not block build)"
+
   build-deploy:
     needs: [lint-test]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
