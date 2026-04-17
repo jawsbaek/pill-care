@@ -34,9 +34,8 @@
 │ │         → critic (LLM-as-judge, 10% 샘플) → verify           │  │
 │ │         → CRITICAL? retry (≤2)                               │  │
 │ ├─────────────────────────────────────────────────────────────┤  │
-│ │ ④ 6-Layer Guardrail                                          │  │
+│ │ ④ 5-Layer Guardrail                                          │  │
 │ │   금칙어 · 출처 계층 · DUR 커버리지 · 종결 문구              │  │
-│ │   · NLI entailment (DeBERTa-v3 ≥0.75)                        │  │
 │ │   · 의도 분류기 (KURE-v1 임베딩 ≥0.70)                       │  │
 │ ├─────────────────────────────────────────────────────────────┤  │
 │ │ ⑤ Streamlit → Cloud Run (Workload Identity + IAP + CI/CD)    │  │
@@ -54,7 +53,7 @@
 | M2 | 공인 데이터 허브 | 식약처 3종 + HIRA DUR 8종 + KAERS + 회수 통합 SQLite+FTS5, 4계층 매칭, N×N DUR | 약물명 → 구조화 약물·DUR 경고 |
 | M3 | LangGraph 6-Node 추론 | Deterministic 3 + LLM(Gemini 2.5 Flash/Claude 4.6) + Critic(Haiku 4.5) + Verify. CRITICAL 자동 재시도 | MedRecord[] → 출처 태그 응답 |
 | M4 | Evidence-Grounded 생성기 | MedConf Supported/Missing/Contradictory 태깅 + T1 공공 / T4 AI 계층. Missing/Contradictory 자동 드롭 | Draft + evidence → grounded 응답 |
-| M5 | 6-Layer Guardrail + Eval | 금칙어·출처·DUR·종결·NLI(≥0.75)·의도(≥0.70) + Langfuse·RAGAS·600 gold set | 응답 → 통과/재시도/escalate |
+| M5 | 5-Layer Guardrail + Eval | 금칙어·출처·DUR·종결·의도(KURE-v1 ≥0.70) + Langfuse·RAGAS·600 gold set | 응답 → 통과/재시도/escalate |
 
 ## 2.4 결과물 형상
 
@@ -82,20 +81,20 @@
 
 **C. AMIE-style LLM-as-judge Critic Node** — Claude Haiku 4.5가 독립 judge로 DUR 커버리지·인용 완전성·금지 표현 재평가. CRITICAL 시 자동 재시도. 10% 샘플링으로 비용 통제. AMIE (Nature Medicine 2025) 차용.
 
-**D. 6-Layer Guardrail + NLI Entailment** — 금칙어 + 출처 계층 + DUR 커버리지 + 필수 종결 + DeBERTa-v3-xsmall NLI(≥0.75) + KURE-v1 임베딩 의도 분류기(≥0.70). 단어 필터 paraphrase 우회 (Lakera 2024 벤치 60-90%) 대응.
+**D. 5-Layer Guardrail + Intent Classifier** — 금칙어 regex + 출처 계층 (T1/T4) + DUR 커버리지 [CRITICAL] + 필수 종결 문구 + KURE-v1 임베딩 의도 분류기(≥0.70)의 5중 방어. Lakera 2024 벤치에서 단어 기반 필터는 paraphrase 공격에 **60-90%** 우회되므로, 임베딩 유사도 기반 의도 분류기가 "복용량을 줄이세요" 류 clinician-voice 우회를 의미 수준에서 차단한다. MedHallu(EMNLP 2025)의 correctness-vs-faithfulness 분리 주장에 부합하여, 본 guardrail은 faithfulness(출처 근거 유지)를 강제하고 correctness(의학적 사실성)는 Critic 노드의 10% 샘플링 재검증에 위임한다. NLI entailment 게이트는 drug-scoped retrieval 인프라가 선행돼야 correctness 보장이 가능하다는 구조적 한계로 v2 본 데모에서는 제외했다 (결선 단계 재도입 후보).
 
 **E. AI Harness — 관측·평가·CI 전 구간 내장** — Langfuse trace + RAGAS + 600 gold set + GitHub Actions 3-gate. "재현 가능한 평가 증거"를 프로덕션 기본 설비로 내장. KorMedMCQA가 커버하지 못하는 한국어 DUR 평가 축 자체 구축.
 
 ## 2.7 도전적 요소
 
-**① MedHallu F1 0.625** [arXiv:2502.14302] — GPT-4o도 의료 hard tier에서 F1 0.625. 필케어는 Evidence Tier + Critic + NLI 3중 대응.
+**① MedHallu F1 0.625** [arXiv:2502.14302] — GPT-4o도 의료 hard tier에서 F1 0.625. 필케어는 Evidence Tier + Critic 재검증 + 의도 분류기 3축 대응.
 
 **② Ren et al.(2026) 멀티턴 신뢰도 AUROC 붕괴** [arXiv:2601.15645] — 기존 기법 AUROC가 랜덤 수준(0.5)까지 붕괴. 근거 기반 프레임워크 필요. 필케어는 RAG 근거 매핑(S/M/C) + Critic 재검증 2-stage로 대응.
 
-**③ LLM 인용 57% Post-Rationalization** [arXiv:2412.18004] — 필케어는 Evidence Tier + Critic + NLI 3축 검증을 응답 스키마에 강제.
+**③ LLM 인용 57% Post-Rationalization** [arXiv:2412.18004] — 필케어는 Evidence Tier(Supported/Missing/Contradictory) + Critic 재검증 + 의도 분류기 3축 검증을 응답 스키마에 강제.
 
 **④ 한국어 의료 벤치 공백** [KorMedMCQA, arXiv:2403.01469] — 한국어 점수가 MedQA와 상관 낮음. 필케어는 DUR 200 + 문구 120 + red-team 100 + 자연스러움 80 + 증상매핑 100 = **600 케이스 한국어 복약 평가 gold set** 자체 구축 목표.
 
 **⑤ 한국 처방 파편화 × 다기관 DUR 사각지대** — 한국 외래 연 18회 · 약국 단위 DUR만 존재. 필케어는 HIRA DUR 8종 + 식약처 + KAERS를 SQLite 허브로 통합, `match → check_dur (N×N 성분쌍)` 결정론 파이프라인으로 폐쇄.
 
-**⑥ 비의료기기(웰니스) 규제 경계 + 의미 우회 방어** — 식약처 생성형 AI 의료기기 가이드라인(2025)에 따라 판단·진단·처방 배제 필수. 필케어는 regex + 의도 분류기 + NLI + 종결 문구 + Critic 의미 검증 5계층으로 "판단하지 않는다" 원칙을 의미 수준 방어.
+**⑥ 비의료기기(웰니스) 규제 경계 + 의미 우회 방어** — 식약처 생성형 AI 의료기기 가이드라인(2025)에 따라 판단·진단·처방 배제 필수. 필케어는 regex 금칙어 + 출처 계층(T1/T4) + DUR 커버리지 + 종결 문구 + KURE-v1 의도 분류기 5계층에 Critic 재검증(10% 샘플)을 더해 "판단하지 않는다" 원칙을 의미 수준에서 방어.

@@ -1,19 +1,29 @@
 """Embedding-similarity intent classifier for paraphrase-bypass defense.
 
-Part of the 6-layer guardrail (A6 — Layer 6): defends against cases
-where a paraphrase slips past the banned-words regex filter (e.g.
-"복용량을 절반으로 줄이시는 것이 좋겠습니다" vs. the literal "복용량을
-변경").  Each section's content is embedded with KURE-v1 (Korean
-retrieval SOTA per Ko-MTEB 2025) and compared against exemplar
-forbidden-intent sentences; if the max cosine similarity to any
-exemplar is at or above the threshold (0.70), the section is flagged.
+Part of the 5-layer guardrail (Layer 5): defends against cases where a
+paraphrase slips past the banned-words regex filter (e.g. "복용량을
+절반으로 줄이시는 것이 좋겠습니다" vs. the literal "복용량을 변경").
+Each section's content is embedded with KURE-v1 (Korean retrieval SOTA
+per Ko-MTEB 2025) and compared against exemplar forbidden-intent
+sentences; if the max cosine similarity to any exemplar is at or above
+the threshold (0.70), the section is flagged.
+
+Fails open: if the KURE-v1 model cannot be loaded (e.g. environments
+without the HF cache warmed via ``scripts/download_kure_model.py``),
+``classify_intent`` logs a warning once and returns ``'allowed'`` for
+every input so the pipeline still runs. The other four guardrail
+layers (banned-words regex, source-tier enforcement, DUR coverage,
+closing-phrase / min-section checks) remain active.
 """
 
 from __future__ import annotations
 
+import logging
 from functools import lru_cache
 
 import numpy as np
+
+logger = logging.getLogger(__name__)
 
 # Exemplars of clinician-like intents the POC must *never* produce.
 #
@@ -51,21 +61,35 @@ _KURE_MODEL_ID = "nlpai-lab/KURE-v1"
 
 @lru_cache(maxsize=1)
 def _load_embedder():
-    """Lazily load the KURE-v1 SentenceTransformer encoder."""
-    from sentence_transformers import SentenceTransformer  # type: ignore[import-not-found]
+    """Load KURE-v1 or return ``None`` on any failure (fail-open)."""
+    try:
+        from sentence_transformers import (  # type: ignore[import-not-found]
+            SentenceTransformer,
+        )
 
-    return SentenceTransformer(_KURE_MODEL_ID)
+        return SentenceTransformer(_KURE_MODEL_ID)
+    except Exception as e:  # noqa: BLE001 — fail-open on any load error
+        logger.warning(
+            "Intent classifier disabled: KURE-v1 load failed (%s). "
+            "Run `uv run python scripts/download_kure_model.py` to enable.",
+            type(e).__name__,
+        )
+        return None
 
 
 @lru_cache(maxsize=1024)
-def _embed(text: str) -> np.ndarray:
-    """Return a unit-norm embedding for ``text`` as a float32 numpy array.
+def _embed(text: str) -> np.ndarray | None:
+    """Return a unit-norm embedding for ``text`` or ``None`` when the
+    embedder is unavailable.
 
     Cached so repeated encoding of the fixed FORBIDDEN_INTENTS pool is
     free, and so identical section content across retries isn't
     re-embedded.
     """
-    emb = _load_embedder().encode(text, normalize_embeddings=True)
+    embedder = _load_embedder()
+    if embedder is None:
+        return None
+    emb = embedder.encode(text, normalize_embeddings=True)
     return np.asarray(emb, dtype=np.float32)
 
 
@@ -74,12 +98,23 @@ def classify_intent(text: str) -> str:
 
     ``'forbidden'`` iff the maximum cosine similarity between ``text``
     and any entry in ``FORBIDDEN_INTENTS`` is >= ``SIMILARITY_THRESHOLD``.
-    Empty / whitespace-only text short-circuits to ``'allowed'``.
+    Empty / whitespace-only text short-circuits to ``'allowed'``.  If
+    the KURE-v1 embedder is unavailable, classification fails open and
+    returns ``'allowed'`` (see module docstring).
     """
     if not text.strip():
         return "allowed"
+    if _load_embedder() is None:
+        return "allowed"  # fail-open — model unavailable
     query = _embed(text)
-    sims = [float(np.dot(query, _embed(intent))) for intent in FORBIDDEN_INTENTS]
+    if query is None:
+        return "allowed"  # defensive — should not happen once embedder loads
+    sims: list[float] = []
+    for intent in FORBIDDEN_INTENTS:
+        intent_emb = _embed(intent)
+        if intent_emb is None:
+            return "allowed"
+        sims.append(float(np.dot(query, intent_emb)))
     if sims and max(sims) >= SIMILARITY_THRESHOLD:
         return "forbidden"
     return "allowed"

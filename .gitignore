@@ -16,7 +16,10 @@ __pycache__/
 # OS
 .DS_Store
 
-# Downloaded ML models (NLI / embeddings) — recreate via scripts/download_nli_model.py
+# HuggingFace cache (KURE-v1 embedder) — recreate via scripts/download_kure_model.py
+hf-cache/
+
+# Stale NLI model dir left over from pre-refactor (no longer referenced by code)
 models/
 
 # Raw MFDS/HIRA data (downloaded from GCS at runtime, do not commit)

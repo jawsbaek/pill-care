@@ -16,7 +16,6 @@ dependencies = [
     "langchain-google-genai==4.2.2",
     "langgraph==1.1.6",
     "msoffcrypto-tool==6.0.0",
-    "onnxruntime>=1.20.0",
     "openpyxl==3.1.5",
     "pydantic==2.13.1",
     "python-dotenv==1.2.2",

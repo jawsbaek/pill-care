@@ -24,7 +24,7 @@
 | SQLite + FTS5 trigram 검색 | 제품화 |
 | LangGraph 기반 에이전트 파이프라인 (v1.1.6) | 제품화 |
 | Gemini 2.5 Flash / Claude Sonnet 4.6 Structured Output | 제품화 |
-| DeBERTa-v3 NLI · KURE-v1 임베딩 | 제품화 |
+| KURE-v1 임베딩 (Ko-MTEB 2025 SOTA) | 제품화 |
 | Evidence Tier Tagging (MedConf 차용) · LLM-as-judge Critic (AMIE 차용) | 시작품 |
 | GCP Cloud Run + Workload Identity + CI/CD | 제품화 |
 | **통합 아키텍처 (본 제안)** | **시작품(Prototype)** |
@@ -47,7 +47,7 @@
 | Medisafe Care (2024) | 소비자 | 해외 DB | ⚠️ 리마인더 중심 | GenAI Q&A | ❌ |
 | 카카오 케어챗 / 닥터나우 AI | 소비자 | 국내(부분) | ❌ | 범용 LLM · 비대면 | 미공개 |
 | 네이버 헬스케어·약올림·올라케어 | 소비자 | 국내(부분) | ❌ | 규칙 기반 | N/A |
-| **필케어 (본 제안)** | **소비자** | **식약처 3종 + HIRA DUR 8종 + KAERS / +RxNorm·DailyMed(결선)** | ✅ **결정론 N×N 성분쌍 + HIRA DUR 8종 룰** | ✅ **LangGraph 6-node** | ✅ **Evidence Tier + Critic + NLI + 6-layer** |
+| **필케어 (본 제안)** | **소비자** | **식약처 3종 + HIRA DUR 8종 + KAERS / +RxNorm·DailyMed(결선)** | ✅ **결정론 N×N 성분쌍 + HIRA DUR 8종 룰** | ✅ **LangGraph 6-node** | ✅ **Evidence Tier + Critic + 5-layer guardrail** |
 
 HIRA '내가 먹는 약 한눈에'는 경쟁자가 아닌 **데이터 파트너**로 포지셔닝 (2025 하반기 건강정보고속도로 1,263개소 확대).
 

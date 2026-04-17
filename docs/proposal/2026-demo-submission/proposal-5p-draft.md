@@ -44,7 +44,7 @@
 (§1 섹션 파일 참조 — 7행 × 6열 표. 상세 `section-1-overview.md#16-유사기술-비교표`)
 
 ### 1.7 차별점
-① Deterministic DUR + Grounded LLM 하이브리드 (MedAgentBoard NeurIPS 2025 정합) · ② 멀티-과·약국 통합 DUR (HIRA 8종 + N×N) · ③ 한국 공공 완전 통합 + 결선 국제 브리지 · ④ Zero-License-Risk Stack · ⑤ AI Harness (NLI + 의도 분류기 + 600 gold set).
+① Deterministic DUR + Grounded LLM 하이브리드 (MedAgentBoard NeurIPS 2025 정합) · ② 멀티-과·약국 통합 DUR (HIRA 8종 + N×N) · ③ 한국 공공 완전 통합 + 결선 국제 브리지 · ④ Zero-License-Risk Stack · ⑤ AI Harness (5-Layer Guardrail + 의도 분류기 + 600 gold set).
 
 ### 2.1 기술 목적 (도입부)
 공공 DUR은 약국 단위 일회성 체크에 머물러 다기관 처방 간 상호작용은 **사각지대**로 남아 있고, ED 방문의 3.5%가 약물 이상반응·그중 **15.3% 예방 가능**. 범용 LLM은 구조적으로 환각 차단이 불가능해(MedHallu F1 0.625, Ren et al. 2026 AUROC 랜덤 붕괴) 고위험 복약 도메인에선 환자 안전 위협이 된다.
@@ -58,7 +58,7 @@
 ## P2 — §2.2 기술구조 + §2.3 주요 기능
 
 ### 2.2 기술구조
-5-layer × AI Harness 외곽 다이어그램 — `section-2-technical.md#22-기술구조-5-레이어-x-ai-harness` 참조. 핵심: SQLite + FTS5 허브, LangGraph 6-Node (match→dur→collect→generate→critic→verify), 6-Layer Guardrail.
+5-layer × AI Harness 외곽 다이어그램 — `section-2-technical.md#22-기술구조-5-레이어-x-ai-harness` 참조. 핵심: SQLite + FTS5 허브, LangGraph 6-Node (match→dur→collect→generate→critic→verify), 5-Layer Guardrail.
 
 ### 2.3 주요 기능 (5 모듈)
 | # | 모듈 | 핵심 기능 |
@@ -67,7 +67,7 @@
 | M2 | 공인 데이터 허브 | 식약처 3종+HIRA DUR 8종+KAERS+회수 통합 SQLite+FTS5, 4계층 매칭, N×N DUR |
 | M3 | LangGraph 6-Node 추론 | Deterministic 3 + LLM(Gemini/Claude) + Critic(Haiku 10% 샘플) + Verify. CRITICAL 재시도 |
 | M4 | Evidence-Grounded 생성기 | MedConf S/M/C 태깅 + T1/T4 계층, Missing/Contradictory 자동 드롭 |
-| M5 | 6-Layer Guardrail + Eval | 금칙어·출처·DUR·종결·NLI(≥0.75)·의도(≥0.70) + Langfuse + RAGAS + 600 gold set |
+| M5 | 5-Layer Guardrail + Eval | 금칙어·출처·DUR(CRITICAL)·종결·의도(KURE-v1 ≥0.70) + Langfuse + RAGAS + 600 gold set |
 
 ---
 
@@ -83,7 +83,7 @@ Streamlit 1.45 웹 · LangGraph 1.1.6 추론 엔진 · SQLite+FTS5 허브 · AI 
 - **A.** Deterministic DUR + Grounded LLM Hybrid (MedAgentBoard NeurIPS 2025)
 - **B.** Evidence Tier Tagging (MedConf arXiv:2601.15645)
 - **C.** AMIE-style LLM-as-judge Critic (Nature Medicine 2025)
-- **D.** 6-Layer Guardrail + NLI Entailment (DeBERTa-v3 ≥0.75)
+- **D.** 5-Layer Guardrail + KURE-v1 Intent Classifier (≥0.70, paraphrase-bypass 방어)
 - **E.** AI Harness — Langfuse + RAGAS + 600 gold set + GitHub Actions 3-gate
 
 ### 2.7 도전 ①-⑥
@@ -99,7 +99,7 @@ Streamlit 1.45 웹 · LangGraph 1.1.6 추론 엔진 · SQLite+FTS5 허브 · AI 
 | W1 | 공인 데이터 허브 ETL | 주현 |
 | W2 | 약물 매칭 엔진 (4계층 + N×N DUR) | 주현 |
 | W3 | LangGraph 6-Node 파이프라인 | 상훈 |
-| W4 | Evidence Tier + 6-Layer Guardrail | 상훈+주현 |
+| W4 | Evidence Tier + 5-Layer Guardrail | 상훈+주현 |
 | W5 | AI Harness (관측·평가·CI) | 주현+상훈 |
 | W6 | Streamlit UI + Cloud Run | 민지+서희 |
 
@@ -107,12 +107,12 @@ Streamlit 1.45 웹 · LangGraph 1.1.6 추론 엔진 · SQLite+FTS5 허브 · AI 
 | M | 기간 | 산출물 |
 |:-:|---|---|
 | M1 기반 | W1-W6 | 데이터 허브·매칭·LangGraph 초기·Cloud Run 배포 |
-| M2 데모 제출 | W7-W12 | Critic + Evidence Tier + NLI + Langfuse + 200 gold + 제안서 + 영상 |
+| M2 데모 제출 | W7-W12 | Critic + Evidence Tier + 5-Layer Guardrail + Langfuse + 200 gold + 제안서 + 영상 |
 | M3 결선 전반 | W13-W18 | Gold 200→600 · RxNorm/DailyMed · red-team 20 |
 | M4 결선 후반 | W19-W24 | 마이데이터 연동 · Gemini vs Claude A/B · 파트너십 |
 
 ### 3.3 기술 스택
-**FE**: Streamlit 1.45 (Python 3.14) · **Agent**: LangGraph 1.1.6 + Gemini 2.5 Flash/Claude Sonnet 4.6/Haiku 4.5 critic · **Data/Safety**: SQLite+FTS5 · rapidfuzz · 성분 동의어 · DeBERTa-v3 NLI · KURE-v1 · **Obs/CI**: Langfuse · RAGAS · 600 gold set · GitHub Actions · Cloud Run + Workload Identity
+**FE**: Streamlit 1.45 (Python 3.14) · **Agent**: LangGraph 1.1.6 + Gemini 2.5 Flash/Claude Sonnet 4.6/Haiku 4.5 critic · **Data/Safety**: SQLite+FTS5 · rapidfuzz · 성분 동의어 · KURE-v1 의도 분류기 (fail-open) · **Obs/CI**: Langfuse · RAGAS · 600 gold set · GitHub Actions · Cloud Run + Workload Identity
 
 ### 3.4 보유 시설·장비
 본 기술은 클라우드 기반 소프트웨어 서비스이며, 팀이 보유한 전용 시설·장비는 없다.

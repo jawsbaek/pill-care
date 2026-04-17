@@ -4,6 +4,12 @@ docs/
 research/
 person_sample/
 scripts/
+# Allow the KURE-v1 prefetch script through so the builder stage can
+# bake the embedding model into the image (see Dockerfile stage 1).
+!scripts/download_kure_model.py
+# HF cache is rebuilt fresh inside the builder stage; exclude any local
+# copy from the build context so we don't ship ~400MB twice.
+hf-cache/
 .claude/
 .venv/
 .git/

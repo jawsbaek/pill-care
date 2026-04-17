@@ -3,7 +3,8 @@ FROM --platform=linux/amd64 ghcr.io/astral-sh/uv:python3.14-bookworm-slim AS bui
 
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
-    UV_PYTHON_DOWNLOADS=0
+    UV_PYTHON_DOWNLOADS=0 \
+    HF_HOME=/app/hf-cache
 
 WORKDIR /app
 
@@ -12,6 +13,19 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=uv.lock,target=uv.lock \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
     uv sync --locked --no-install-project --no-dev
+
+# Bake KURE-v1 (~400MB) into the image so Cloud Run cold-start does not
+# fetch from HuggingFace Hub (which would blow past the 10s startup
+# probe and repeat per-instance). The download script warms the
+# KURE-v1 cache under HF_HOME (/app/hf-cache), which we COPY into the
+# runtime stage.
+#
+# scripts/ is gitignored from the normal source COPY (see .dockerignore),
+# so we bind-mount the prefetch script here rather than relying on
+# `COPY . /app`.
+RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=bind,source=scripts/download_kure_model.py,target=/app/scripts/download_kure_model.py \
+    /app/.venv/bin/python /app/scripts/download_kure_model.py
 
 # Copy app source and install project
 COPY . /app
@@ -27,7 +41,10 @@ RUN groupadd --system --gid 999 nonroot \
 
 COPY --from=builder --chown=nonroot:nonroot /app /app
 
-ENV PATH="/app/.venv/bin:$PATH"
+# Point SentenceTransformer / transformers at the baked HF cache so no
+# network fetch happens at cold-start.
+ENV PATH="/app/.venv/bin:$PATH" \
+    HF_HOME=/app/hf-cache
 USER nonroot
 WORKDIR /app
 

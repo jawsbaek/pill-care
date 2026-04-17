@@ -234,23 +234,7 @@ def _verify_node(state: dict) -> dict:
     # min sections, closing phrase) see only SUPPORTED sections.
     result = drop_unsupported_claims(result)
 
-    # A6 Layer 5: collect evidence chunks from collect_info's drug_infos
-    # for the NLI entailment gate. Each info exposes `sections` (dict of
-    # section_name -> section_text from the PERMIT XML) and `easy` (the
-    # e약은요 fields). We flatten both into a list of strings; empty
-    # strings are tolerated downstream.
-    evidence_chunks: list[str] = []
-    for info in state.get("drug_infos", []):
-        sections = info.get("sections") or {}
-        for stext in sections.values():
-            if stext:
-                evidence_chunks.append(stext)
-        easy = info.get("easy") or {}
-        for val in easy.values():
-            if val:
-                evidence_chunks.append(str(val))
-
-    new_errors = post_verify(result, dur_alerts, evidence_chunks=evidence_chunks)
+    new_errors = post_verify(result, dur_alerts)
     return {
         "guidance_result": result.model_dump(mode="json"),
         "errors": new_errors,

@@ -4,9 +4,9 @@
 
 **Goal:** 한국 AI 해커톤 데모 제출(W12, 6주 뒤)을 위해 β 아키텍처(Grounded Scientist) 코드 구현을 완성하고 5페이지 제안서 + 3분 영상을 제출한다.
 
-**Architecture:** 기존 LangGraph 5-node 파이프라인에 Critic 노드 추가해 6-node화하고, MedConf Evidence Tier tagging + NLI entailment + 의도 분류기를 6-Layer Guardrail로 통합. 관측은 Langfuse, 평가는 RAGAS + 자체 Gold set 200 케이스. 제안서 본문은 `docs/superpowers/specs/2026-04-17-pillcare-proposal-v2-design.md` §1-§3을 5페이지로 압축.
+**Architecture:** 기존 LangGraph 5-node 파이프라인에 Critic 노드 추가해 6-node화하고, MedConf Evidence Tier tagging + KURE-v1 의도 분류기를 5-Layer Guardrail로 통합 (NLI entailment 레이어는 drug-scoped retrieval 인프라 미비로 제거, 결선 재도입 후보). 관측은 Langfuse, 평가는 RAGAS + 자체 Gold set 200 케이스. 제안서 본문은 `docs/superpowers/specs/2026-04-17-pillcare-proposal-v2-design.md` §1-§3을 5페이지로 압축.
 
-**Tech Stack:** Python 3.14 · uv · LangGraph 1.1.6 · Gemini 2.5 Flash (Vertex AI) · Claude Sonnet 4.6 fallback · Claude Haiku 4.5 (critic) · SQLite + FTS5 · rapidfuzz · DeBERTa-v3-xsmall ONNX · Langfuse · RAGAS · Streamlit 1.45 · GCP Cloud Run · GitHub Actions.
+**Tech Stack:** Python 3.14 · uv · LangGraph 1.1.6 · Gemini 2.5 Flash (Vertex AI) · Claude Sonnet 4.6 fallback · Claude Haiku 4.5 (critic) · SQLite + FTS5 · rapidfuzz · KURE-v1 임베딩 (fail-open) · Langfuse · RAGAS · Streamlit 1.45 · GCP Cloud Run · GitHub Actions.
 
 **Two parallel tracks:**
 - **Track A** — β 아키텍처 M2 코드 (상훈 · 주현 주도, 9 tasks)
@@ -792,6 +792,23 @@ git commit -m "feat: MedConf evidence tier tagging (Supported/Missing/Contradict
 ---
 
 ## Task A6: NLI Entailment + 의도 분류기 (6-Layer Guardrail 완성)
+
+> **⚠️ 부분 Supersede 공지 (2026-04-17)**
+>
+> 본 task는 A6 구현 이후 P1 리뷰에서 drug-scoped retrieval 부재로
+> NLI 게이트가 A-B 교차 지지를 허용하는 구조적 한계가 확인되어,
+> **NLI entailment 레이어는 제거**되었고 5-Layer Guardrail로 단순화되었다.
+>
+> - **제거 (v2-demo-m2 브랜치 이후)**: `src/pillcare/nli_gate.py`,
+>   `tests/test_nli_gate.py`, `onnxruntime` 의존성, DeBERTa-v3 베이크.
+> - **유지**: `intent_classifier.py` (KURE-v1, paraphrase-bypass 방어, fail-open).
+> - **severity 승격**: DUR 커버리지 오류 `[ERROR]` → `[CRITICAL]` (재시도 루프
+>   강제).
+> - **Dockerfile**: KURE-v1만 HF 캐시에 프리페치 (~400MB), NLI 모델 베이크 제거.
+>
+> 결선 단계에서 drug-scoped retrieval 인프라(RxNorm/DailyMed + ATC 브리지)가
+> 확보되면 NLI entailment 게이트 재도입을 재평가한다.
+> 구현 세부 근거는 spec 문서의 §5 변경 이력 (2026-04-17 NLI 제거 항목) 참조.
 
 **담당**: 상훈
 **기간**: W10 목-W11 화 (5일)

@@ -1,4 +1,4 @@
-"""Intent classifier tests (A6 — Layer 6 of the 6-layer guardrail)."""
+"""Intent classifier tests (Layer 5 of the 5-layer guardrail)."""
 
 import pytest
 
@@ -39,3 +39,29 @@ def test_empty_text_is_allowed():
 
     assert classify_intent("") == "allowed"
     assert classify_intent("   ") == "allowed"
+
+
+def test_intent_classifier_fail_open_when_model_missing(monkeypatch):
+    """P1-3 contract: when KURE-v1 cannot load, classify_intent returns
+    ``'allowed'`` for every input rather than raising.
+
+    Covers environments where the HF cache has not been warmed via
+    ``scripts/download_kure_model.py`` (or where sentence-transformers
+    is entirely absent). We patch ``_load_embedder`` to simulate the
+    failure mode and bypass the ``lru_cache`` that would otherwise
+    pin the real model.
+    """
+    from pillcare import intent_classifier
+
+    # Drop cached embedder state from earlier tests in the suite.
+    intent_classifier._load_embedder.cache_clear()
+    intent_classifier._embed.cache_clear()
+
+    monkeypatch.setattr(intent_classifier, "_load_embedder", lambda: None)
+
+    # Clinician-voice paraphrase that would normally be flagged.
+    assert (
+        intent_classifier.classify_intent("당신은 당뇨병으로 진단됩니다") == "allowed"
+    )
+    # And a neutral utterance.
+    assert intent_classifier.classify_intent("약을 식후에 복용하세요") == "allowed"

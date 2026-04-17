@@ -95,51 +95,15 @@ def verify_closing_phrase(result: GuidanceResult) -> list[str]:
     return errors
 
 
-def verify_nli_entailment(
-    result: GuidanceResult, evidence_chunks: list[str]
-) -> list[str]:
-    """Layer 5: NLI entailment gate for T4:AI sections.
-
-    Every AI-generated (T4) section's content is checked against the
-    concatenated evidence text. If entailment probability falls below
-    ``ENTAILMENT_THRESHOLD`` (0.75), emits ``[CRITICAL]`` so the retry
-    loop fires. T1 sections are already deterministically grounded by
-    ``collect_info`` and are skipped.
-
-    Imported lazily so modules that don't call ``post_verify(...,
-    evidence_chunks=...)`` never trigger the multi-hundred-MB model
-    load.
-    """
-    if not evidence_chunks:
-        return []
-    evidence_text = "\n".join(chunk for chunk in evidence_chunks if chunk)
-    if not evidence_text.strip():
-        return []
-
-    from pillcare.nli_gate import passes_nli_gate
-
-    errors: list[str] = []
-    for guidance in result.drug_guidances:
-        for name, section in guidance.sections.items():
-            if section.source_tier != SourceTier.T4_AI:
-                continue
-            # Cap claim length to keep inference bounded and focus on
-            # the core assertion of the section.
-            claim = section.content[:300]
-            if not passes_nli_gate(claim, evidence_text):
-                errors.append(
-                    f"[CRITICAL] NLI entailment 실패: {guidance.drug_name} - {name}"
-                )
-    return errors
-
-
 def verify_intent(result: GuidanceResult) -> list[str]:
-    """Layer 6: embedding-similarity intent classifier.
+    """Layer 5: embedding-similarity intent classifier.
 
     Defends against paraphrase-bypass of the banned-words regex filter
     by comparing each section's content against a pool of exemplar
     clinician-only intents (diagnosis / prescription / dose change /
-    treatment recommendation).  Imported lazily.
+    treatment recommendation).  Imported lazily; the classifier itself
+    fails open (returns ``'allowed'``) when the KURE-v1 model cannot be
+    loaded, so a missing model never blocks the pipeline.
     """
     from pillcare.intent_classifier import classify_intent
 
@@ -156,32 +120,31 @@ def verify_intent(result: GuidanceResult) -> list[str]:
 def post_verify(
     result: GuidanceResult,
     dur_alerts: list[dict],
-    evidence_chunks: list[str] | None = None,
 ) -> list[str]:
     """Run all post-verification guardrail checks and return collected errors.
 
-    6-layer guardrail:
+    5-layer guardrail:
         L1 금칙어 regex       — applied upstream in ``generate``
         L2 출처 계층 강제     — ``verify_source_tags`` / ``verify_t4_ratio``
-        L3 DUR 커버리지       — ``verify_dur_coverage``
+        L3 DUR 커버리지       — ``verify_dur_coverage`` ([CRITICAL] on miss)
         L4 필수 종결 문구     — ``verify_closing_phrase`` (+ min sections)
-        L5 NLI entailment    — ``verify_nli_entailment`` (if evidence given)
-        L6 의도 분류기        — ``verify_intent``
+        L5 의도 분류기        — ``verify_intent``
 
-    ``evidence_chunks`` is optional to preserve backward compatibility
-    with existing tests / call sites; when omitted, L5 is skipped.
+    DUR coverage misses are emitted as ``[CRITICAL]`` so the
+    ``_should_retry`` gate triggers regeneration even when the LLM drops
+    a DUR-related section via ``drop_unsupported_claims`` upstream
+    (P1-1 review fix).
     """
     errors = []
     missing = verify_dur_coverage(result, dur_alerts)
     for m in missing:
         errors.append(
-            f"[ERROR] DUR 누락: {m['drug_name_1']} × {m['drug_name_2']} (deterministic 구성 — 재시도 불가, 코드 버그 확인 필요)"
+            f"[CRITICAL] DUR 누락: {m['drug_name_1']} × {m['drug_name_2']} "
+            "(재생성 필요 — LLM이 DUR 관련 섹션을 드롭했거나 생성 실패)"
         )
     errors.extend(verify_source_tags(result))
     errors.extend(verify_min_sections(result))
     errors.extend(verify_t4_ratio(result))
     errors.extend(verify_closing_phrase(result))
-    if evidence_chunks:
-        errors.extend(verify_nli_entailment(result, evidence_chunks))
     errors.extend(verify_intent(result))
     return errors
