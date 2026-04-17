@@ -9,7 +9,7 @@ authors = [
 requires-python = ">=3.14"
 dependencies = [
     "anthropic==0.95.0",
-    "google-cloud-storage>=2.18.0,<3.0.0",
+    "google-cloud-storage>=3.10,<4.0",
     "langchain-anthropic==1.4.0",
     "langchain-core==1.2.30",
     "langchain-google-genai==4.2.2",
