@@ -32,7 +32,7 @@ from pathlib import Path
 _INGR_CODE_RE = re.compile(r"\[[A-Z]\d+\]")
 
 _WS_RE = re.compile(r"\s+")
-_TRAILING_PUNCT = " )(.,;:·[]{}"
+_TRAILING_PUNCT = " ([{.,;:·"
 
 
 def _normalize_name(raw: str) -> str:
