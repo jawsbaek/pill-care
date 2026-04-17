@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from pillcare.dur_checker import check_dur, DurAlert
+from pillcare.dur_checker import check_dur
 
 
 @pytest.fixture
@@ -21,7 +21,14 @@ def db_with_dur(tmp_path: Path) -> Path:
     """)
     conn.execute(
         "INSERT INTO dur_pairs VALUES (?,?,?,?,?,?)",
-        ("M040702", "이부프로펜", "M04790101", "와파린나트륨", "출혈 위험 증가", "20200101"),
+        (
+            "M040702",
+            "이부프로펜",
+            "M04790101",
+            "와파린나트륨",
+            "출혈 위험 증가",
+            "20200101",
+        ),
     )
     conn.execute(
         "INSERT INTO dur_pairs VALUES (?,?,?,?,?,?)",
@@ -35,9 +42,17 @@ def db_with_dur(tmp_path: Path) -> Path:
 @pytest.fixture
 def drug_list_multi_ingr():
     return [
-        {"drug_name": "펠루비정", "department": "가정의학과", "ingr_codes": ["M040702"]},
+        {
+            "drug_name": "펠루비정",
+            "department": "가정의학과",
+            "ingr_codes": ["M040702"],
+        },
         {"drug_name": "쿠마딘정", "department": "내과", "ingr_codes": ["M04790101"]},
-        {"drug_name": "코대원정", "department": "가정의학과", "ingr_codes": ["M175201", "M146801"]},
+        {
+            "drug_name": "코대원정",
+            "department": "가정의학과",
+            "ingr_codes": ["M175201", "M146801"],
+        },
         {"drug_name": "MAO약", "department": "정신과", "ingr_codes": ["M999901"]},
     ]
 
@@ -60,7 +75,9 @@ def test_check_dur_detects_cross_clinic(db_with_dur, drug_list_multi_ingr):
     assert ibu_warf.cross_clinic is True
 
 
-def test_check_dur_multi_ingr_alert_shows_correct_names(db_with_dur, drug_list_multi_ingr):
+def test_check_dur_multi_ingr_alert_shows_correct_names(
+    db_with_dur, drug_list_multi_ingr
+):
     alerts = check_dur(db_with_dur, drug_list_multi_ingr)
     mao_alert = next(a for a in alerts if "혈압" in a.reason)
     assert mao_alert.drug_name_1 == "코대원정"
@@ -70,7 +87,11 @@ def test_check_dur_multi_ingr_alert_shows_correct_names(db_with_dur, drug_list_m
 
 def test_check_dur_no_alerts_for_safe_drugs(db_with_dur):
     safe_drugs = [
-        {"drug_name": "알게텍정", "department": "가정의학과", "ingr_codes": ["M254901"]},
+        {
+            "drug_name": "알게텍정",
+            "department": "가정의학과",
+            "ingr_codes": ["M254901"],
+        },
         {"drug_name": "안전한약", "department": "내과", "ingr_codes": ["M999999"]},
     ]
     alerts = check_dur(db_with_dur, safe_drugs)

@@ -133,8 +133,12 @@ def build_db(
     conn.execute("PRAGMA journal_mode=WAL")
 
     for ddl in [
-        _DRUGS_DDL, _DRUGS_EASY_DDL, _DRUG_SECTIONS_DDL,
-        _DUR_PAIRS_DDL, _BUNDLE_ATC_DDL, _MEDICATION_HISTORY_DDL,
+        _DRUGS_DDL,
+        _DRUGS_EASY_DDL,
+        _DRUG_SECTIONS_DDL,
+        _DUR_PAIRS_DDL,
+        _BUNDLE_ATC_DDL,
+        _MEDICATION_HISTORY_DDL,
     ]:
         conn.execute(ddl)
 
@@ -149,14 +153,22 @@ def build_db(
              nb_doc_data, total_content)
             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (
-                item.get("ITEM_SEQ"), item.get("ITEM_NAME"),
-                item.get("ITEM_ENG_NAME"), item.get("ENTP_NAME"),
-                item.get("ETC_OTC_CODE"), item.get("MATERIAL_NAME"),
-                item.get("MAIN_ITEM_INGR"), item.get("MAIN_INGR_ENG"),
-                item.get("CHART"), item.get("ATC_CODE"),
-                item.get("STORAGE_METHOD"), item.get("VALID_TERM"),
-                item.get("EDI_CODE"), item.get("EE_DOC_DATA"),
-                item.get("UD_DOC_DATA"), item.get("NB_DOC_DATA"),
+                item.get("ITEM_SEQ"),
+                item.get("ITEM_NAME"),
+                item.get("ITEM_ENG_NAME"),
+                item.get("ENTP_NAME"),
+                item.get("ETC_OTC_CODE"),
+                item.get("MATERIAL_NAME"),
+                item.get("MAIN_ITEM_INGR"),
+                item.get("MAIN_INGR_ENG"),
+                item.get("CHART"),
+                item.get("ATC_CODE"),
+                item.get("STORAGE_METHOD"),
+                item.get("VALID_TERM"),
+                item.get("EDI_CODE"),
+                item.get("EE_DOC_DATA"),
+                item.get("UD_DOC_DATA"),
+                item.get("NB_DOC_DATA"),
                 item.get("TOTAL_CONTENT"),
             ),
         )
@@ -180,10 +192,14 @@ def build_db(
                  atpn_qesitm, intrc_qesitm, se_qesitm, deposit_method_qesitm)
                 VALUES (?,?,?,?,?,?,?,?)""",
                 (
-                    item.get("itemSeq"), item.get("efcyQesitm"),
-                    item.get("useMethodQesitm"), item.get("atpnWarnQesitm"),
-                    item.get("atpnQesitm"), item.get("intrcQesitm"),
-                    item.get("seQesitm"), item.get("depositMethodQesitm"),
+                    item.get("itemSeq"),
+                    item.get("efcyQesitm"),
+                    item.get("useMethodQesitm"),
+                    item.get("atpnWarnQesitm"),
+                    item.get("atpnQesitm"),
+                    item.get("intrcQesitm"),
+                    item.get("seQesitm"),
+                    item.get("depositMethodQesitm"),
                 ),
             )
 
@@ -226,8 +242,13 @@ def build_full_db(data_dir: Path, db_path: Path) -> Path:
         for s in sections:
             conn.execute(
                 "INSERT OR REPLACE INTO drug_sections VALUES (?,?,?,?,?)",
-                (item["ITEM_SEQ"], s.section_type, s.section_title,
-                 s.section_text, s.section_order),
+                (
+                    item["ITEM_SEQ"],
+                    s.section_type,
+                    s.section_title,
+                    s.section_text,
+                    s.section_order,
+                ),
             )
             count += 1
     conn.commit()
@@ -241,8 +262,14 @@ def build_full_db(data_dir: Path, db_path: Path) -> Path:
         for p in pairs:
             conn.execute(
                 "INSERT OR REPLACE INTO dur_pairs VALUES (?,?,?,?,?,?)",
-                (p.ingr_code_1, p.ingr_name_1, p.ingr_code_2,
-                 p.ingr_name_2, p.reason, p.notice_date),
+                (
+                    p.ingr_code_1,
+                    p.ingr_name_1,
+                    p.ingr_code_2,
+                    p.ingr_name_2,
+                    p.reason,
+                    p.notice_date,
+                ),
             )
         conn.commit()
         print(f"  {len(pairs)} pairs inserted")
@@ -256,9 +283,13 @@ def build_full_db(data_dir: Path, db_path: Path) -> Path:
         for item in bundle_data:
             conn.execute(
                 "INSERT INTO bundle_atc VALUES (?,?,?,?,?)",
-                (item.get("trustItemName"), item.get("trustMainingr"),
-                 item.get("trustAtcCode"), item.get("trustHiraMainingrCode"),
-                 item.get("trustHiraPrductCode")),
+                (
+                    item.get("trustItemName"),
+                    item.get("trustMainingr"),
+                    item.get("trustAtcCode"),
+                    item.get("trustHiraMainingrCode"),
+                    item.get("trustHiraPrductCode"),
+                ),
             )
         conn.commit()
         print(f"  {len(bundle_data)} bundle records inserted")

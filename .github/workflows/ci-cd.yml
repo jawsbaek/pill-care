@@ -1,0 +1,92 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  REGION: asia-northeast3
+  SERVICE: pillcare
+  IMAGE: asia-northeast3-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/pillcare/app
+
+jobs:
+  lint-test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Lint
+        run: uv run ruff check .
+
+      - name: Format check
+        run: uv run ruff format --check .
+
+      - name: Test
+        run: uv run pytest --tb=short
+
+  build-deploy:
+    needs: [lint-test]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.WIF_PROVIDER }}
+          service_account: ${{ vars.DEPLOYER_SA }}
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ env.IMAGE }}:${{ github.sha }}
+          cache-from: type=gha,scope=pillcare-${{ github.ref_name }}
+          cache-to: type=gha,mode=max,scope=pillcare-${{ github.ref_name }}
+
+      - name: Deploy to Cloud Run
+        # Note: --iap must be set manually during initial setup (requires OAuth
+        # consent screen config). Do not add it here.
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: ${{ env.SERVICE }}
+          image: ${{ env.IMAGE }}:${{ github.sha }}
+          region: ${{ env.REGION }}
+          flags: >-
+            --memory=2Gi
+            --cpu=1
+            --concurrency=1
+            --min-instances=0
+            --max-instances=2
+            --timeout=600
+            --no-allow-unauthenticated
+            --cpu-boost
+          # NOTE: GCS_BUCKET, GCS_BLOB, DB_SHA256 must be set manually in
+          # Cloud Run configuration (they change when the DB is rebuilt).
+          # IAP (--iap) requires manual initial setup with OAuth consent screen.
+          env_vars: |
+            LOG_LEVEL=WARNING
+            GCP_PROJECT_ID=${{ vars.GCP_PROJECT_ID }}
+            GCP_REGION=asia-northeast3
+            LLM_PROVIDER=gemini

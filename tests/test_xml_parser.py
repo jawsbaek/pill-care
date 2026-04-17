@@ -2,7 +2,7 @@
 
 from pathlib import Path
 import pytest
-from pillcare.xml_parser import parse_nb_doc, Section
+from pillcare.xml_parser import parse_nb_doc
 
 
 @pytest.fixture

@@ -13,13 +13,33 @@ OUTPUT_DIR = Path(__file__).resolve().parent.parent / "data"
 
 # Fields to keep in CSV (excluding large XML doc fields)
 CSV_FIELDS = [
-    "ITEM_SEQ", "ITEM_NAME", "ITEM_ENG_NAME", "ENTP_NAME", "ENTP_ENG_NAME",
-    "ITEM_PERMIT_DATE", "CNSGN_MANUF", "ETC_OTC_CODE", "CHART",
-    "BAR_CODE", "MATERIAL_NAME", "STORAGE_METHOD", "VALID_TERM",
-    "PACK_UNIT", "EDI_CODE", "CANCEL_NAME", "CANCEL_DATE",
-    "NARCOTIC_KIND_CODE", "TOTAL_CONTENT", "MAIN_ITEM_INGR", "INGR_NAME",
-    "ATC_CODE", "MAIN_INGR_ENG", "BIZRNO", "MAKE_MATERIAL_FLAG",
-    "INDUTY_TYPE", "RARE_DRUG_YN",
+    "ITEM_SEQ",
+    "ITEM_NAME",
+    "ITEM_ENG_NAME",
+    "ENTP_NAME",
+    "ENTP_ENG_NAME",
+    "ITEM_PERMIT_DATE",
+    "CNSGN_MANUF",
+    "ETC_OTC_CODE",
+    "CHART",
+    "BAR_CODE",
+    "MATERIAL_NAME",
+    "STORAGE_METHOD",
+    "VALID_TERM",
+    "PACK_UNIT",
+    "EDI_CODE",
+    "CANCEL_NAME",
+    "CANCEL_DATE",
+    "NARCOTIC_KIND_CODE",
+    "TOTAL_CONTENT",
+    "MAIN_ITEM_INGR",
+    "INGR_NAME",
+    "ATC_CODE",
+    "MAIN_INGR_ENG",
+    "BIZRNO",
+    "MAKE_MATERIAL_FLAG",
+    "INDUTY_TYPE",
+    "RARE_DRUG_YN",
 ]
 
 
@@ -75,7 +95,12 @@ def save_csv(items: list[dict], path: Path):
         writer = csv.DictWriter(f, fieldnames=CSV_FIELDS, extrasaction="ignore")
         writer.writeheader()
         for item in items:
-            row = {k: (item.get(k) or "").strip() if isinstance(item.get(k), str) else (item.get(k) or "") for k in CSV_FIELDS}
+            row = {
+                k: (item.get(k) or "").strip()
+                if isinstance(item.get(k), str)
+                else (item.get(k) or "")
+                for k in CSV_FIELDS
+            }
             writer.writerow(row)
     size_mb = path.stat().st_size / 1024 / 1024
     print(f"Saved CSV: {path} ({size_mb:.1f} MB)")
@@ -84,10 +109,20 @@ def save_csv(items: list[dict], path: Path):
 def print_stats(items: list[dict]):
     print("\n=== Field Population Stats ===")
     key_fields = [
-        "ITEM_SEQ", "ITEM_NAME", "MATERIAL_NAME", "ATC_CODE",
-        "MAIN_ITEM_INGR", "MAIN_INGR_ENG", "CHART", "STORAGE_METHOD",
-        "VALID_TERM", "EE_DOC_DATA", "UD_DOC_DATA", "NB_DOC_DATA",
-        "EDI_CODE", "ETC_OTC_CODE",
+        "ITEM_SEQ",
+        "ITEM_NAME",
+        "MATERIAL_NAME",
+        "ATC_CODE",
+        "MAIN_ITEM_INGR",
+        "MAIN_INGR_ENG",
+        "CHART",
+        "STORAGE_METHOD",
+        "VALID_TERM",
+        "EE_DOC_DATA",
+        "UD_DOC_DATA",
+        "NB_DOC_DATA",
+        "EDI_CODE",
+        "ETC_OTC_CODE",
     ]
     for field in key_fields:
         populated = sum(1 for item in items if item.get(field))

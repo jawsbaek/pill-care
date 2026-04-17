@@ -1,4 +1,5 @@
 """Tests for medication history parser."""
+
 from pathlib import Path
 import pytest
 from pillcare.history_parser import parse_history_xls, MedRecord
@@ -29,10 +30,18 @@ def test_parse_real_xls_ophthalmology():
 
 def test_med_record_fields():
     rec = MedRecord(
-        seq=1, drug_name="알게텍정", drug_class="제산제",
-        ingredient="almagate", drug_code="057600010", unit="1정",
-        dose_per_time=1.0, times_per_day=3, duration_days=3,
-        safety_letter="N", antithrombotic="N", department="가정의학과",
+        seq=1,
+        drug_name="알게텍정",
+        drug_class="제산제",
+        ingredient="almagate",
+        drug_code="057600010",
+        unit="1정",
+        dose_per_time=1.0,
+        times_per_day=3,
+        duration_days=3,
+        safety_letter="N",
+        antithrombotic="N",
+        department="가정의학과",
     )
     assert rec.drug_name == "알게텍정"
     assert rec.times_per_day == 3

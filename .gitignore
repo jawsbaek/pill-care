@@ -1,14 +1,9 @@
 # Large data files (download/crawl to reproduce)
 data/drug_permit_detail.json
-data/drug_permit_detail.csv
-data/easy_drug_info.json
-data/easy_drug_info.csv
-data/bundle_drug_info.json
-data/bundle_drug_info.csv
-data/medicines.csv
 data/한국의약품안전관리원_병용금기약물_20240625.csv
-data/117_DT_*.csv
-*.db
+
+# Personal sample data
+person_sample/
 
 # Python
 __pycache__/

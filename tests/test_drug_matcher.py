@@ -1,13 +1,12 @@
 """Tests for 4-phase drug matcher."""
 
 import json
-import sqlite3
 from pathlib import Path
 
 import pytest
 
 from pillcare.db_builder import build_db
-from pillcare.drug_matcher import match_drug, DrugMatch, extract_ingr_codes
+from pillcare.drug_matcher import match_drug, extract_ingr_codes
 
 
 @pytest.fixture

@@ -45,9 +45,14 @@ def check_dur(db_path: Path, drugs: list[dict]) -> list[DurAlert]:
 
                 # Include department in dedup key so same drug from
                 # different clinics produces separate alerts
-                dedup_key = (d1["drug_name"], d1["department"],
-                             d2["drug_name"], d2["department"],
-                             code_a, code_b)
+                dedup_key = (
+                    d1["drug_name"],
+                    d1["department"],
+                    d2["drug_name"],
+                    d2["department"],
+                    code_a,
+                    code_b,
+                )
                 if dedup_key in seen:
                     continue
                 seen.add(dedup_key)
@@ -58,17 +63,19 @@ def check_dur(db_path: Path, drugs: list[dict]) -> list[DurAlert]:
                 else:
                     name_a, name_b = row["ingr_name_2"], row["ingr_name_1"]
 
-                alerts.append(DurAlert(
-                    drug_name_1=d1["drug_name"],
-                    department_1=d1["department"],
-                    ingr_code_1=code_a,
-                    ingr_name_1=name_a,
-                    drug_name_2=d2["drug_name"],
-                    department_2=d2["department"],
-                    ingr_code_2=code_b,
-                    ingr_name_2=name_b,
-                    reason=row["reason"],
-                    cross_clinic=(d1["department"] != d2["department"]),
-                ))
+                alerts.append(
+                    DurAlert(
+                        drug_name_1=d1["drug_name"],
+                        department_1=d1["department"],
+                        ingr_code_1=code_a,
+                        ingr_name_1=name_a,
+                        drug_name_2=d2["drug_name"],
+                        department_2=d2["department"],
+                        ingr_code_2=code_b,
+                        ingr_name_2=name_b,
+                        reason=row["reason"],
+                        cross_clinic=(d1["department"] != d2["department"]),
+                    )
+                )
 
     return alerts

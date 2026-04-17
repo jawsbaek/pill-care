@@ -8,7 +8,7 @@ import pytest
 
 from pillcare.db_builder import build_db
 from pillcare.xml_parser import parse_nb_doc
-from pillcare.drug_info import get_drug_info, DrugInfo
+from pillcare.drug_info import get_drug_info
 
 
 @pytest.fixture
@@ -26,7 +26,13 @@ def db_with_sections(tmp_path: Path, fixtures_dir: Path) -> Path:
         for s in sections:
             conn.execute(
                 "INSERT OR REPLACE INTO drug_sections VALUES (?,?,?,?,?)",
-                (item["ITEM_SEQ"], s.section_type, s.section_title, s.section_text, s.section_order),
+                (
+                    item["ITEM_SEQ"],
+                    s.section_type,
+                    s.section_title,
+                    s.section_text,
+                    s.section_order,
+                ),
             )
     conn.commit()
     conn.close()

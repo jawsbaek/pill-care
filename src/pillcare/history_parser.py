@@ -82,13 +82,22 @@ def parse_history_xls(path: Path, password: str, department: str) -> list[MedRec
             except (ValueError, TypeError):
                 return 0
 
-        records.append(MedRecord(
-            seq=seq, drug_name=g("제품명"), drug_class=g("약효분류"),
-            ingredient=g("성분명"), drug_code=g("약품코드"), unit=g("단위"),
-            dose_per_time=gf("1회 투약량"), times_per_day=gi("1일 투여횟수"),
-            duration_days=gi("총 투약일수"), safety_letter=g("안전성 서한(속보)"),
-            antithrombotic=g("항혈전제 여부"), department=department,
-        ))
+        records.append(
+            MedRecord(
+                seq=seq,
+                drug_name=g("제품명"),
+                drug_class=g("약효분류"),
+                ingredient=g("성분명"),
+                drug_code=g("약품코드"),
+                unit=g("단위"),
+                dose_per_time=gf("1회 투약량"),
+                times_per_day=gi("1일 투여횟수"),
+                duration_days=gi("총 투약일수"),
+                safety_letter=g("안전성 서한(속보)"),
+                antithrombotic=g("항혈전제 여부"),
+                department=department,
+            )
+        )
 
     wb.close()
     return records
