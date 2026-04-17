@@ -38,11 +38,13 @@ def test_guidance_section_accepts_missing_tag():
     assert section.claim_tag == ClaimTag.MISSING
 
 
-def test_drug_section_output_default_claim_tag_is_supported():
+def test_drug_section_output_default_claim_tag_is_missing():
+    """Untagged LLM output must default to MISSING (fail-safe drop)."""
     s = DrugSectionOutput(
         section_name="명칭", content="test", source_tier="T1:허가정보"
     )
-    assert s.claim_tag == ClaimTag.SUPPORTED
+    assert s.claim_tag == ClaimTag.MISSING
+    assert s.claim_tag.value == "missing"
 
 
 def test_drug_section_output_carries_claim_tag_through_conversion():
@@ -205,9 +207,13 @@ def test_drug_guidance_output_merges_duplicate_sections():
                 section_name="주의사항",
                 content="첫 번째 주의.",
                 source_tier="T1:허가정보",
+                claim_tag=ClaimTag.SUPPORTED,
             ),
             DrugSectionOutput(
-                section_name="주의사항", content="두 번째 주의.", source_tier="T4:AI"
+                section_name="주의사항",
+                content="두 번째 주의.",
+                source_tier="T4:AI",
+                claim_tag=ClaimTag.SUPPORTED,
             ),
         ],
     )
@@ -217,3 +223,63 @@ def test_drug_guidance_output_merges_duplicate_sections():
     assert "두 번째 주의." in guidance.sections["주의사항"].content
     # T1 should be preserved over T4
     assert guidance.sections["주의사항"].source_tier == SourceTier.T1_PERMIT
+
+
+@pytest.mark.parametrize(
+    "first,second,expected",
+    [
+        (ClaimTag.SUPPORTED, ClaimTag.MISSING, ClaimTag.MISSING),
+        (ClaimTag.SUPPORTED, ClaimTag.CONTRADICTORY, ClaimTag.CONTRADICTORY),
+        (ClaimTag.MISSING, ClaimTag.CONTRADICTORY, ClaimTag.MISSING),
+        (ClaimTag.CONTRADICTORY, ClaimTag.MISSING, ClaimTag.CONTRADICTORY),
+        (ClaimTag.MISSING, ClaimTag.MISSING, ClaimTag.MISSING),
+    ],
+    ids=["supp+miss", "supp+contra", "miss+contra", "contra+miss", "miss+miss"],
+)
+def test_to_drug_guidance_claim_tag_merge_rule(first, second, expected):
+    """Merge rule: existing non-SUPPORTED dominates; first non-SUPPORTED wins on ties."""
+    output = DrugGuidanceOutput(
+        drug_name="테스트",
+        sections=[
+            DrugSectionOutput(
+                section_name="효능효과",
+                content="a",
+                source_tier="T1:허가정보",
+                claim_tag=first,
+            ),
+            DrugSectionOutput(
+                section_name="효능효과",  # duplicate name → triggers merge
+                content="b",
+                source_tier="T1:허가정보",
+                claim_tag=second,
+            ),
+        ],
+    )
+    guidance = output.to_drug_guidance()
+    assert guidance.sections["효능효과"].claim_tag == expected
+
+
+def test_drug_guidance_template_formats_without_brace_errors():
+    """Template must accept evidence_tier_instruction without KeyError."""
+    from pillcare.prompts import DRUG_GUIDANCE_TEMPLATE, EVIDENCE_TIER_INSTRUCTION
+
+    rendered = DRUG_GUIDANCE_TEMPLATE.format(
+        item_name="테스트약",
+        main_item_ingr="이부프로펜",
+        main_ingr_eng="Ibuprofen",
+        entp_name="테스트제약",
+        atc_code="M01AE01",
+        etc_otc_code="일반의약품",
+        chart="정제",
+        total_content="200mg",
+        storage_method="실온",
+        valid_term="36개월",
+        ee_text="효능",
+        ud_text="용법",
+        nb_sections="주의",
+        easy_text="안내",
+        dur_alerts="[]",
+        evidence_tier_instruction=EVIDENCE_TIER_INSTRUCTION,
+    )
+    assert "supported" in rendered.lower()
+    assert "missing" in rendered.lower()

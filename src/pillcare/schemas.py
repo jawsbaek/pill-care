@@ -53,7 +53,10 @@ class GuidanceSection(BaseModel):
     title: str
     content: str
     source_tier: SourceTier
-    claim_tag: ClaimTag = ClaimTag.SUPPORTED  # default for hybrid/legacy compat
+    claim_tag: ClaimTag = ClaimTag.SUPPORTED  # internal default for non-LLM paths
+    # NOTE: default differs from DrugSectionOutput (MISSING) intentionally.
+    # - DrugSectionOutput is LLM structured output: untagged should drop.
+    # - GuidanceSection is internal model: legacy T1-only paths default SUPPORTED.
 
 
 class DrugGuidance(BaseModel):
@@ -90,7 +93,10 @@ class DrugSectionOutput(BaseModel):
     section_name: SECTION_NAMES
     content: str
     source_tier: SOURCE_TIER_LABELS
-    claim_tag: ClaimTag = ClaimTag.SUPPORTED
+    claim_tag: ClaimTag = ClaimTag.MISSING  # fail-safe: untagged LLM output → drop
+    # NOTE: default differs from GuidanceSection (SUPPORTED) intentionally.
+    # - DrugSectionOutput is LLM structured output: untagged should drop.
+    # - GuidanceSection is internal model: legacy T1-only paths default SUPPORTED.
 
 
 class DrugGuidanceOutput(BaseModel):

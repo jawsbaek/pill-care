@@ -72,7 +72,9 @@ ATC코드: {atc_code}
 {easy_text}
 
 ## DUR 병용금기 경고 (T1:DUR)
-{dur_alerts}""" + EVIDENCE_TIER_INSTRUCTION
+{dur_alerts}
+
+{evidence_tier_instruction}"""
 
 BANNED_WORDS = [
     "진단합니다",

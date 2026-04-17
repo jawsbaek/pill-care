@@ -7,7 +7,7 @@ from typing import Annotated, Any, TypedDict
 from langchain_core.messages import HumanMessage, SystemMessage
 from langgraph.graph import END, START, StateGraph
 
-from pillcare.prompts import DRUG_GUIDANCE_TEMPLATE, SYSTEM_PROMPT
+from pillcare.prompts import DRUG_GUIDANCE_TEMPLATE, EVIDENCE_TIER_INSTRUCTION, SYSTEM_PROMPT
 from pillcare.schemas import (
     DrugGuidance,
     DrugGuidanceOutput,
@@ -132,6 +132,7 @@ def _make_generate_node(llm: Any):
                 nb_sections=sections_text or "(없음)",
                 easy_text=easy_text or "(없음)",
                 dur_alerts=dur_text or "(없음)",
+                evidence_tier_instruction=EVIDENCE_TIER_INSTRUCTION,
             )
 
             try:

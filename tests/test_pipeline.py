@@ -8,7 +8,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from pillcare.db_builder import build_db
-from pillcare.schemas import DrugGuidanceOutput, DrugSectionOutput
+from pillcare.schemas import ClaimTag, DrugGuidanceOutput, DrugSectionOutput
 from pillcare.xml_parser import parse_nb_doc
 from pillcare.pipeline import build_pipeline, run_pipeline
 from pillcare.tools import make_match_node, make_dur_node, make_collect_node
@@ -73,26 +73,31 @@ def mock_guidance_output():
                 section_name="명칭",
                 content="리도펜연질캡슐 (이부프로펜 200mg)",
                 source_tier="T1:허가정보",
+                claim_tag=ClaimTag.SUPPORTED,
             ),
             DrugSectionOutput(
                 section_name="효능효과",
                 content="감기 발열 통증에 사용합니다.",
                 source_tier="T1:e약은요",
+                claim_tag=ClaimTag.SUPPORTED,
             ),
             DrugSectionOutput(
                 section_name="용법용량",
                 content="1회 1캡슐, 1일 3회 식후 복용하십시오.",
                 source_tier="T1:허가정보",
+                claim_tag=ClaimTag.SUPPORTED,
             ),
             DrugSectionOutput(
                 section_name="주의사항",
                 content="위장출혈 주의. 의사 또는 약사와 상담하십시오.",
                 source_tier="T1:허가정보",
+                claim_tag=ClaimTag.SUPPORTED,
             ),
             DrugSectionOutput(
                 section_name="상호작용",
                 content="이부프로펜과 클로르페니라민 병용 시 중추신경 억제 증강. 의사 또는 약사와 상담하십시오.",
                 source_tier="T1:DUR",
+                claim_tag=ClaimTag.SUPPORTED,
             ),
         ],
     )
