@@ -1,4 +1,5 @@
 """NLI entailment gate tests (A6 — Layer 5 of the 6-layer guardrail)."""
+
 import pytest
 
 

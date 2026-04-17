@@ -19,6 +19,7 @@ def drop_unsupported_claims(result: GuidanceResult) -> GuidanceResult:
         }
     return result
 
+
 _WARNING_SECTIONS = {"주의사항", "상호작용", "투여종료후"}
 _CLOSING_PHRASE = "의사 또는 약사와 상담하십시오"
 

@@ -38,9 +38,7 @@ def critic_node(state: dict, llm: Any) -> dict:
     safety net; post_verify is authoritative on CRITICAL rules.
     """
     if not should_sample_critic():
-        return {
-            "critic_output": CriticOutput(verdict=CriticVerdict.PASS).model_dump()
-        }
+        return {"critic_output": CriticOutput(verdict=CriticVerdict.PASS).model_dump()}
 
     prompt = _build_critic_prompt(state)
     try:

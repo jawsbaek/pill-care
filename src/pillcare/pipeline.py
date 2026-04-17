@@ -7,7 +7,11 @@ from typing import Annotated, Any, TypedDict
 from langchain_core.messages import HumanMessage, SystemMessage
 from langgraph.graph import END, START, StateGraph
 
-from pillcare.prompts import DRUG_GUIDANCE_TEMPLATE, EVIDENCE_TIER_INSTRUCTION, SYSTEM_PROMPT
+from pillcare.prompts import (
+    DRUG_GUIDANCE_TEMPLATE,
+    EVIDENCE_TIER_INSTRUCTION,
+    SYSTEM_PROMPT,
+)
 from pillcare.schemas import (
     DrugGuidance,
     DrugGuidanceOutput,

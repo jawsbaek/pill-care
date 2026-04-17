@@ -56,6 +56,7 @@ def _canonical_mg(number: str, unit: str) -> float | None:
         return None
     return float(number) * factor
 
+
 # data/ingredient_synonyms.json lives at <repo-root>/data/...; this file is at
 # <repo-root>/src/pillcare/drug_matcher.py, so go up two parents.
 _SYNONYMS_PATH = (

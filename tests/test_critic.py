@@ -132,8 +132,8 @@ def test_critic_prompt_uses_json_serialization(monkeypatch):
     }
     prompt = _build_critic_prompt(state)
     # JSON uses double quotes and lowercase booleans; Python repr uses single quotes + True/False
-    assert "\"summary\"" in prompt
-    assert "\"cross_clinic\": false" in prompt or "\"cross_clinic\": true" in prompt
+    assert '"summary"' in prompt
+    assert '"cross_clinic": false' in prompt or '"cross_clinic": true' in prompt
     assert "'summary'" not in prompt
     assert ": False" not in prompt  # Python repr of bool
     assert ": True" not in prompt

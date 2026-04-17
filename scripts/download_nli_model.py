@@ -7,6 +7,7 @@ The model (~80MB) is saved under `models/nli/` and loaded by
 `pillcare.nli_gate.check_entailment` for the 6-layer guardrail's NLI
 entailment gate.
 """
+
 from pathlib import Path
 
 from huggingface_hub import snapshot_download

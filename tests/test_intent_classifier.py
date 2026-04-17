@@ -1,4 +1,5 @@
 """Intent classifier tests (A6 — Layer 6 of the 6-layer guardrail)."""
+
 import pytest
 
 
