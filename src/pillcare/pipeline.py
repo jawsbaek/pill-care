@@ -43,6 +43,10 @@ class PublicState(TypedDict, total=False):
     drug_infos: list[dict]
     guidance_result: dict | None
     errors: Annotated[list[str], operator.add]
+    # Optional patient context for HIRA DUR rules beyond 병용금기:
+    #   age_years (float), is_pregnant (bool), pregnancy_week (int 0-40).
+    # When absent, only combined/dose/duplicate rules (context-free) run.
+    patient_context: dict | None
 
 
 # Internal state: includes private keys not exposed in input/output
@@ -82,30 +86,56 @@ def _make_generate_node(llm: Any):
                     f"{info.get('item_name', '')}: {easy['atpn_warn_qesitm'][:100]}"
                 )
 
-        # Build DUR warnings
+        # Build DUR warnings (8 rule types; pair fields absent for
+        # single-drug rules like age/pregnancy/dose/elderly).
+        _RULE_LABELS = {
+            "combined": "병용금기",
+            "age": "연령금기",
+            "pregnancy": "임부금기",
+            "dose": "용량주의",
+            "duplicate": "효능군중복",
+            "elderly": "노인주의",
+            "specific_age": "특정연령",
+            "pregnant_woman": "임산부주의",
+        }
         for alert in dur_alerts:
+            rule_type = alert.get("rule_type", "combined")
+            rule_label = _RULE_LABELS.get(rule_type, rule_type)
             dur_warnings.append(
                 DurWarning(
                     drug_1=alert["drug_name_1"],
-                    drug_2=alert["drug_name_2"],
+                    drug_2=alert.get("drug_name_2"),
                     reason=alert["reason"],
-                    cross_clinic=alert["cross_clinic"],
+                    cross_clinic=alert.get("cross_clinic", False),
+                    rule_type=rule_type,
                 )
             )
-            cross = " [다기관]" if alert["cross_clinic"] else ""
-            warning_labels.append(
-                f"[병용금기] {alert['drug_name_1']} x {alert['drug_name_2']}: {alert['reason']}{cross}"
-            )
+            cross = " [다기관]" if alert.get("cross_clinic") else ""
+            if alert.get("drug_name_2"):
+                warning_labels.append(
+                    f"[{rule_label}] {alert['drug_name_1']} x "
+                    f"{alert['drug_name_2']}: {alert['reason']}{cross}"
+                )
+            else:
+                warning_labels.append(
+                    f"[{rule_label}] {alert['drug_name_1']}: {alert['reason']}"
+                )
 
         # Format DUR text for prompts
         dur_text = ""
         if dur_alerts:
             lines = []
             for a in dur_alerts:
-                cross = " [다기관 교차 처방]" if a["cross_clinic"] else ""
-                lines.append(
-                    f"- {a['drug_name_1']} x {a['drug_name_2']}: {a['reason']}{cross}"
-                )
+                cross = " [다기관 교차 처방]" if a.get("cross_clinic") else ""
+                rule_type = a.get("rule_type", "combined")
+                rule_label = _RULE_LABELS.get(rule_type, rule_type)
+                if a.get("drug_name_2"):
+                    lines.append(
+                        f"- [{rule_label}] {a['drug_name_1']} x "
+                        f"{a['drug_name_2']}: {a['reason']}{cross}"
+                    )
+                else:
+                    lines.append(f"- [{rule_label}] {a['drug_name_1']}: {a['reason']}")
             dur_text = "\n".join(lines)
 
         # Generate per-drug guidance via structured output

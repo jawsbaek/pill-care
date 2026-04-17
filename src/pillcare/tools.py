@@ -52,7 +52,10 @@ def make_dur_node(db_path: str):
             }
             for d in state["matched_drugs"]
         ]
-        alerts = check_dur(Path(db_path), drugs_for_check)
+        patient_context = state.get("patient_context") or None
+        alerts = check_dur(
+            Path(db_path), drugs_for_check, patient_context=patient_context
+        )
         return {
             "dur_alerts": [
                 DurAlertModel(
@@ -66,6 +69,7 @@ def make_dur_node(db_path: str):
                     ingr_name_2=a.ingr_name_2,
                     reason=a.reason,
                     cross_clinic=a.cross_clinic,
+                    rule_type=a.rule_type,
                 ).model_dump()
                 for a in alerts
             ]

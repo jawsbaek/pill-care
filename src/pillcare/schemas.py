@@ -13,6 +13,30 @@ class SourceTier(str, Enum):
     T4_AI = "T4:AI"
 
 
+class DurRuleType(str, Enum):
+    """HIRA DUR 8-rule taxonomy.
+
+    Values map 1:1 to 공공데이터포털 의약품안전사용서비스(DUR) 룰 유형:
+    - COMBINED: 병용금기 (drug × drug interaction)
+    - AGE: 연령금기 (absolute age contraindication, e.g. 영유아 2세 미만)
+    - PREGNANCY: 임부금기 (absolute pregnancy contraindication)
+    - DOSE: 용량주의 (daily max dose warning)
+    - DUPLICATE: 효능군중복 (therapeutic duplication, same ATC/효능군)
+    - ELDERLY: 노인주의 (>=65, Beers-list style)
+    - SPECIFIC_AGE: 특정연령 (bounded age range warning, e.g. 청소년 12–18)
+    - PREGNANT_WOMAN: 임산부주의 (additional pregnancy warnings beyond 임부금기)
+    """
+
+    COMBINED = "combined"
+    AGE = "age"
+    PREGNANCY = "pregnancy"
+    DOSE = "dose"
+    DUPLICATE = "duplicate"
+    ELDERLY = "elderly"
+    SPECIFIC_AGE = "specific_age"
+    PREGNANT_WOMAN = "pregnant_woman"
+
+
 class ClaimTag(str, Enum):
     """MedConf-style evidence tier for LLM-generated claims.
 
@@ -41,12 +65,15 @@ class DurAlertModel(BaseModel):
     department_1: str
     ingr_code_1: str
     ingr_name_1: str
-    drug_name_2: str
-    department_2: str
-    ingr_code_2: str
-    ingr_name_2: str
+    # For single-drug rule types (age/pregnancy/dose/elderly/…) drug_name_2
+    # and the corresponding ingr_code/name/department fields may be absent.
+    drug_name_2: str | None = None
+    department_2: str | None = None
+    ingr_code_2: str | None = None
+    ingr_name_2: str | None = None
     reason: str
-    cross_clinic: bool
+    cross_clinic: bool = False
+    rule_type: DurRuleType = DurRuleType.COMBINED
 
 
 class GuidanceSection(BaseModel):
@@ -144,9 +171,11 @@ class DrugGuidanceOutput(BaseModel):
 
 class DurWarning(BaseModel):
     drug_1: str
-    drug_2: str
+    # drug_2 is None for single-drug rule types (age/pregnancy/dose/…).
+    drug_2: str | None = None
     reason: str
-    cross_clinic: bool
+    cross_clinic: bool = False
+    rule_type: DurRuleType = DurRuleType.COMBINED
 
 
 class GuidanceResult(BaseModel):

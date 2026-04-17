@@ -5,6 +5,9 @@ from pydantic import ValidationError
 
 from pillcare.schemas import (
     ClaimTag,
+    DurAlertModel,
+    DurRuleType,
+    DurWarning,
     MatchedDrug,
     DrugGuidance,
     DrugGuidanceOutput,
@@ -13,6 +16,55 @@ from pillcare.schemas import (
     GuidanceResult,
     SourceTier,
 )
+
+
+def test_dur_rule_type_covers_eight_hira_rules():
+    expected = {
+        "combined",
+        "age",
+        "pregnancy",
+        "dose",
+        "duplicate",
+        "elderly",
+        "specific_age",
+        "pregnant_woman",
+    }
+    assert {r.value for r in DurRuleType} == expected
+
+
+def test_dur_alert_model_rule_type_defaults_to_combined():
+    m = DurAlertModel(
+        drug_name_1="A",
+        department_1="내과",
+        ingr_code_1="X1",
+        ingr_name_1="성분A",
+        drug_name_2="B",
+        department_2="내과",
+        ingr_code_2="X2",
+        ingr_name_2="성분B",
+        reason="테스트",
+        cross_clinic=False,
+    )
+    assert m.rule_type == DurRuleType.COMBINED
+
+
+def test_dur_alert_model_allows_missing_pair_for_single_drug_rule():
+    m = DurAlertModel(
+        drug_name_1="A",
+        department_1="내과",
+        ingr_code_1="X1",
+        ingr_name_1="성분A",
+        reason="영유아 금기",
+        rule_type=DurRuleType.AGE,
+    )
+    assert m.drug_name_2 is None
+    assert m.rule_type == DurRuleType.AGE
+
+
+def test_dur_warning_accepts_single_drug_rule():
+    w = DurWarning(drug_1="A", reason="임부금기", rule_type=DurRuleType.PREGNANCY)
+    assert w.drug_2 is None
+    assert w.rule_type == DurRuleType.PREGNANCY
 
 
 def test_claim_tag_values():

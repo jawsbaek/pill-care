@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from pillcare.db_builder import build_db
+from pillcare.db_builder import build_db, build_dur_v2026_tables
 
 
 @pytest.fixture
@@ -86,3 +86,59 @@ def test_build_db_is_idempotent(tmp_path: Path, small_permit, small_easy):
     cursor = conn.execute("SELECT COUNT(*) FROM drugs")
     assert cursor.fetchone()[0] == 3
     conn.close()
+
+
+def test_build_db_creates_all_eight_dur_tables(
+    tmp_path: Path, small_permit, small_easy
+):
+    """build_db creates dur_pairs + the 7 HIRA DUR v2026 tables."""
+    db_path = tmp_path / "pillcare.db"
+    build_db(db_path, permit_data=small_permit, easy_data=small_easy)
+
+    conn = sqlite3.connect(db_path)
+    try:
+        tables = {
+            r[0]
+            for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        }
+    finally:
+        conn.close()
+
+    expected = {
+        "dur_pairs",
+        "dur_age",
+        "dur_pregnancy",
+        "dur_dose",
+        "dur_duplicate",
+        "dur_elderly",
+        "dur_specific_age",
+        "dur_pregnant_woman",
+    }
+    assert expected.issubset(tables), f"missing: {expected - tables}"
+
+
+def test_build_dur_v2026_tables_loads_fixtures(
+    tmp_path: Path, fixtures_dir: Path, small_permit, small_easy
+):
+    """build_dur_v2026_tables loads rows from hira_dur_v2026/ fixtures."""
+    db_path = tmp_path / "pillcare.db"
+    build_db(db_path, permit_data=small_permit, easy_data=small_easy)
+    counts = build_dur_v2026_tables(
+        db_path, fixtures_dir / "hira_dur_v2026", encoding="utf-8-sig"
+    )
+    assert counts == {
+        "dur_age": 2,
+        "dur_pregnancy": 2,
+        "dur_dose": 2,
+        "dur_duplicate": 4,
+        "dur_elderly": 2,
+        "dur_specific_age": 2,
+        "dur_pregnant_woman": 2,
+    }
+
+    conn = sqlite3.connect(db_path)
+    try:
+        assert conn.execute("SELECT COUNT(*) FROM dur_age").fetchone()[0] == 2
+        assert conn.execute("SELECT COUNT(*) FROM dur_duplicate").fetchone()[0] == 4
+    finally:
+        conn.close()

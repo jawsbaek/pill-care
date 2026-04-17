@@ -63,6 +63,114 @@ CREATE TABLE IF NOT EXISTS dur_pairs (
 )
 """
 
+# --- HIRA DUR 7 additional rule-type tables ---
+# Each indexed on ingredient_code for O(1) lookup per matched drug.
+
+_DUR_AGE_DDL = """
+CREATE TABLE IF NOT EXISTS dur_age (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ingredient_code TEXT NOT NULL,
+    ingredient_name TEXT NOT NULL,
+    age_min INTEGER NOT NULL,
+    age_max INTEGER NOT NULL,
+    age_unit TEXT NOT NULL,
+    reason TEXT NOT NULL
+)
+"""
+_DUR_AGE_IDX = (
+    "CREATE INDEX IF NOT EXISTS idx_dur_age_ingredient ON dur_age(ingredient_code)"
+)
+
+_DUR_PREGNANCY_DDL = """
+CREATE TABLE IF NOT EXISTS dur_pregnancy (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ingredient_code TEXT NOT NULL,
+    ingredient_name TEXT NOT NULL,
+    week_min INTEGER NOT NULL,
+    week_max INTEGER NOT NULL,
+    reason TEXT NOT NULL
+)
+"""
+_DUR_PREGNANCY_IDX = (
+    "CREATE INDEX IF NOT EXISTS idx_dur_pregnancy_ingredient "
+    "ON dur_pregnancy(ingredient_code)"
+)
+
+_DUR_DOSE_DDL = """
+CREATE TABLE IF NOT EXISTS dur_dose (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ingredient_code TEXT NOT NULL,
+    ingredient_name TEXT NOT NULL,
+    daily_max REAL NOT NULL,
+    dose_unit TEXT NOT NULL,
+    reason TEXT NOT NULL
+)
+"""
+_DUR_DOSE_IDX = (
+    "CREATE INDEX IF NOT EXISTS idx_dur_dose_ingredient ON dur_dose(ingredient_code)"
+)
+
+_DUR_DUPLICATE_DDL = """
+CREATE TABLE IF NOT EXISTS dur_duplicate (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    class_code TEXT NOT NULL,
+    class_name TEXT NOT NULL,
+    ingredient_code TEXT NOT NULL,
+    ingredient_name TEXT NOT NULL
+)
+"""
+_DUR_DUPLICATE_IDX_ING = (
+    "CREATE INDEX IF NOT EXISTS idx_dur_duplicate_ingredient "
+    "ON dur_duplicate(ingredient_code)"
+)
+_DUR_DUPLICATE_IDX_CLS = (
+    "CREATE INDEX IF NOT EXISTS idx_dur_duplicate_class ON dur_duplicate(class_code)"
+)
+
+_DUR_ELDERLY_DDL = """
+CREATE TABLE IF NOT EXISTS dur_elderly (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ingredient_code TEXT NOT NULL,
+    ingredient_name TEXT NOT NULL,
+    target_age INTEGER NOT NULL,
+    reason TEXT NOT NULL
+)
+"""
+_DUR_ELDERLY_IDX = (
+    "CREATE INDEX IF NOT EXISTS idx_dur_elderly_ingredient "
+    "ON dur_elderly(ingredient_code)"
+)
+
+_DUR_SPECIFIC_AGE_DDL = """
+CREATE TABLE IF NOT EXISTS dur_specific_age (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ingredient_code TEXT NOT NULL,
+    ingredient_name TEXT NOT NULL,
+    age_min INTEGER NOT NULL,
+    age_max INTEGER NOT NULL,
+    reason TEXT NOT NULL
+)
+"""
+_DUR_SPECIFIC_AGE_IDX = (
+    "CREATE INDEX IF NOT EXISTS idx_dur_specific_age_ingredient "
+    "ON dur_specific_age(ingredient_code)"
+)
+
+_DUR_PREGNANT_WOMAN_DDL = """
+CREATE TABLE IF NOT EXISTS dur_pregnant_woman (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ingredient_code TEXT NOT NULL,
+    ingredient_name TEXT NOT NULL,
+    week_min INTEGER NOT NULL,
+    week_max INTEGER NOT NULL,
+    reason TEXT NOT NULL
+)
+"""
+_DUR_PREGNANT_WOMAN_IDX = (
+    "CREATE INDEX IF NOT EXISTS idx_dur_pregnant_woman_ingredient "
+    "ON dur_pregnant_woman(ingredient_code)"
+)
+
 _BUNDLE_ATC_DDL = """
 CREATE TABLE IF NOT EXISTS bundle_atc (
     trust_item_name          TEXT,
@@ -137,10 +245,29 @@ def build_db(
         _DRUGS_EASY_DDL,
         _DRUG_SECTIONS_DDL,
         _DUR_PAIRS_DDL,
+        _DUR_AGE_DDL,
+        _DUR_PREGNANCY_DDL,
+        _DUR_DOSE_DDL,
+        _DUR_DUPLICATE_DDL,
+        _DUR_ELDERLY_DDL,
+        _DUR_SPECIFIC_AGE_DDL,
+        _DUR_PREGNANT_WOMAN_DDL,
         _BUNDLE_ATC_DDL,
         _MEDICATION_HISTORY_DDL,
     ]:
         conn.execute(ddl)
+
+    for idx in [
+        _DUR_AGE_IDX,
+        _DUR_PREGNANCY_IDX,
+        _DUR_DOSE_IDX,
+        _DUR_DUPLICATE_IDX_ING,
+        _DUR_DUPLICATE_IDX_CLS,
+        _DUR_ELDERLY_IDX,
+        _DUR_SPECIFIC_AGE_IDX,
+        _DUR_PREGNANT_WOMAN_IDX,
+    ]:
+        conn.execute(idx)
 
     # Upsert drugs
     conn.execute("DELETE FROM drugs")
@@ -208,6 +335,217 @@ def build_db(
     return db_path
 
 
+def build_dur_v2026_tables(
+    db_path: Path,
+    hira_dir: Path,
+    encoding: str = "utf-8-sig",
+) -> dict[str, int]:
+    """Load HIRA DUR 8-rule v2026 CSVs from ``hira_dir`` into SQLite.
+
+    Expects files named per tests/fixtures/hira_dur_v2026/README.md. Missing
+    files are silently skipped (conditional load). Returns per-table row
+    counts so callers can log / assert.
+
+    The base tables are assumed to already exist (e.g. via a preceding
+    ``build_db`` call). This function re-runs the DDL defensively so it can
+    be invoked standalone in tests.
+    """
+    from pillcare.dur_normalizer import (
+        normalize_age_prohibition,
+        normalize_dose_warning,
+        normalize_duplicate_therapy,
+        normalize_elderly_warning,
+        normalize_pregnancy_prohibition,
+        normalize_pregnant_woman,
+        normalize_specific_age,
+    )
+
+    conn = sqlite3.connect(db_path)
+    try:
+        # Defensive: ensure tables exist even if called without build_db first.
+        for ddl in [
+            _DUR_AGE_DDL,
+            _DUR_PREGNANCY_DDL,
+            _DUR_DOSE_DDL,
+            _DUR_DUPLICATE_DDL,
+            _DUR_ELDERLY_DDL,
+            _DUR_SPECIFIC_AGE_DDL,
+            _DUR_PREGNANT_WOMAN_DDL,
+        ]:
+            conn.execute(ddl)
+        for idx in [
+            _DUR_AGE_IDX,
+            _DUR_PREGNANCY_IDX,
+            _DUR_DOSE_IDX,
+            _DUR_DUPLICATE_IDX_ING,
+            _DUR_DUPLICATE_IDX_CLS,
+            _DUR_ELDERLY_IDX,
+            _DUR_SPECIFIC_AGE_IDX,
+            _DUR_PREGNANT_WOMAN_IDX,
+        ]:
+            conn.execute(idx)
+
+        counts: dict[str, int] = {}
+
+        # Age
+        age_csv = hira_dir / "age_prohibition.csv"
+        if age_csv.exists():
+            conn.execute("DELETE FROM dur_age")
+            rows = normalize_age_prohibition(age_csv, encoding=encoding)
+            conn.executemany(
+                "INSERT INTO dur_age "
+                "(ingredient_code, ingredient_name, age_min, age_max, age_unit, reason)"
+                " VALUES (?, ?, ?, ?, ?, ?)",
+                [
+                    (
+                        r["ingredient_code"],
+                        r["ingredient_name"],
+                        r["age_min"],
+                        r["age_max"],
+                        r["age_unit"],
+                        r["reason"],
+                    )
+                    for r in rows
+                ],
+            )
+            counts["dur_age"] = len(rows)
+
+        # Pregnancy (absolute)
+        preg_csv = hira_dir / "pregnancy_prohibition.csv"
+        if preg_csv.exists():
+            conn.execute("DELETE FROM dur_pregnancy")
+            rows = normalize_pregnancy_prohibition(preg_csv, encoding=encoding)
+            conn.executemany(
+                "INSERT INTO dur_pregnancy "
+                "(ingredient_code, ingredient_name, week_min, week_max, reason)"
+                " VALUES (?, ?, ?, ?, ?)",
+                [
+                    (
+                        r["ingredient_code"],
+                        r["ingredient_name"],
+                        r["week_min"],
+                        r["week_max"],
+                        r["reason"],
+                    )
+                    for r in rows
+                ],
+            )
+            counts["dur_pregnancy"] = len(rows)
+
+        # Dose
+        dose_csv = hira_dir / "dose_warning.csv"
+        if dose_csv.exists():
+            conn.execute("DELETE FROM dur_dose")
+            rows = normalize_dose_warning(dose_csv, encoding=encoding)
+            conn.executemany(
+                "INSERT INTO dur_dose "
+                "(ingredient_code, ingredient_name, daily_max, dose_unit, reason)"
+                " VALUES (?, ?, ?, ?, ?)",
+                [
+                    (
+                        r["ingredient_code"],
+                        r["ingredient_name"],
+                        r["daily_max"],
+                        r["dose_unit"],
+                        r["reason"],
+                    )
+                    for r in rows
+                ],
+            )
+            counts["dur_dose"] = len(rows)
+
+        # Duplicate
+        dup_csv = hira_dir / "duplicate_therapy.csv"
+        if dup_csv.exists():
+            conn.execute("DELETE FROM dur_duplicate")
+            rows = normalize_duplicate_therapy(dup_csv, encoding=encoding)
+            conn.executemany(
+                "INSERT INTO dur_duplicate "
+                "(class_code, class_name, ingredient_code, ingredient_name)"
+                " VALUES (?, ?, ?, ?)",
+                [
+                    (
+                        r["class_code"],
+                        r["class_name"],
+                        r["ingredient_code"],
+                        r["ingredient_name"],
+                    )
+                    for r in rows
+                ],
+            )
+            counts["dur_duplicate"] = len(rows)
+
+        # Elderly
+        eld_csv = hira_dir / "elderly_warning.csv"
+        if eld_csv.exists():
+            conn.execute("DELETE FROM dur_elderly")
+            rows = normalize_elderly_warning(eld_csv, encoding=encoding)
+            conn.executemany(
+                "INSERT INTO dur_elderly "
+                "(ingredient_code, ingredient_name, target_age, reason)"
+                " VALUES (?, ?, ?, ?)",
+                [
+                    (
+                        r["ingredient_code"],
+                        r["ingredient_name"],
+                        r["target_age"],
+                        r["reason"],
+                    )
+                    for r in rows
+                ],
+            )
+            counts["dur_elderly"] = len(rows)
+
+        # Specific age
+        spec_csv = hira_dir / "specific_age.csv"
+        if spec_csv.exists():
+            conn.execute("DELETE FROM dur_specific_age")
+            rows = normalize_specific_age(spec_csv, encoding=encoding)
+            conn.executemany(
+                "INSERT INTO dur_specific_age "
+                "(ingredient_code, ingredient_name, age_min, age_max, reason)"
+                " VALUES (?, ?, ?, ?, ?)",
+                [
+                    (
+                        r["ingredient_code"],
+                        r["ingredient_name"],
+                        r["age_min"],
+                        r["age_max"],
+                        r["reason"],
+                    )
+                    for r in rows
+                ],
+            )
+            counts["dur_specific_age"] = len(rows)
+
+        # Pregnant woman
+        pw_csv = hira_dir / "pregnant_woman.csv"
+        if pw_csv.exists():
+            conn.execute("DELETE FROM dur_pregnant_woman")
+            rows = normalize_pregnant_woman(pw_csv, encoding=encoding)
+            conn.executemany(
+                "INSERT INTO dur_pregnant_woman "
+                "(ingredient_code, ingredient_name, week_min, week_max, reason)"
+                " VALUES (?, ?, ?, ?, ?)",
+                [
+                    (
+                        r["ingredient_code"],
+                        r["ingredient_name"],
+                        r["week_min"],
+                        r["week_max"],
+                        r["reason"],
+                    )
+                    for r in rows
+                ],
+            )
+            counts["dur_pregnant_woman"] = len(rows)
+
+        conn.commit()
+        return counts
+    finally:
+        conn.close()
+
+
 def build_full_db(data_dir: Path, db_path: Path) -> Path:
     """Build the complete DB from all crawled data files."""
     import json
@@ -273,6 +611,18 @@ def build_full_db(data_dir: Path, db_path: Path) -> Path:
             )
         conn.commit()
         print(f"  {len(pairs)} pairs inserted")
+
+    # HIRA DUR v2026 8-rule tables — load if directory present.
+    # Team downloads HIRA CSVs (공공데이터포털 인증 필요) to
+    # data/hira-dur-v2026/; gitignored. CI uses the synthetic fixtures in
+    # tests/fixtures/hira_dur_v2026/ via a dedicated test.
+    hira_dir = data_dir / "hira-dur-v2026"
+    if hira_dir.exists() and hira_dir.is_dir():
+        print("Loading HIRA DUR v2026 8-rule tables...")
+        # Production HIRA CSVs are typically CP949; override here if needed.
+        counts = build_dur_v2026_tables(db_path, hira_dir, encoding="cp949")
+        for table, n in counts.items():
+            print(f"  {table}: {n} rows")
 
     bundle_path = data_dir / "bundle_drug_info.json"
     if bundle_path.exists():
