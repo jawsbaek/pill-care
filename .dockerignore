@@ -11,6 +11,7 @@ scripts/
 __pycache__/
 *.pyc
 *.md
+!README.md
 .env
 .env.example
 .DS_Store

@@ -59,7 +59,7 @@ def parse_history_xls(path: Path, password: str, department: str) -> list[MedRec
             continue
         try:
             seq = int(seq_val)
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             continue
 
         def g(col_name: str) -> str:
@@ -72,14 +72,14 @@ def parse_history_xls(path: Path, password: str, department: str) -> list[MedRec
             v = g(col_name)
             try:
                 return float(v)
-            except (ValueError, TypeError):
+            except ValueError, TypeError:
                 return 0.0
 
         def gi(col_name: str) -> int:
             v = g(col_name)
             try:
                 return int(float(v))
-            except (ValueError, TypeError):
+            except ValueError, TypeError:
                 return 0
 
         records.append(
