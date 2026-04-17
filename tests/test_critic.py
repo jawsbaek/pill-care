@@ -120,3 +120,40 @@ def test_critic_node_flags_missing_dur_coverage(monkeypatch):
     result = critic_node(state, llm=llm)
     assert result["critic_output"]["verdict"] == "retry"
     assert any("DUR" in e for e in result["critic_output"]["critical_errors"])
+
+
+def test_critic_prompt_uses_json_serialization(monkeypatch):
+    """Prompt must serialize state as JSON (not Python repr)."""
+    from pillcare.critic import _build_critic_prompt
+
+    state = {
+        "guidance_result": {"summary": "테스트", "cross_clinic": False},
+        "dur_alerts": [{"drug_name_1": "A", "drug_name_2": "B", "cross_clinic": True}],
+    }
+    prompt = _build_critic_prompt(state)
+    # JSON uses double quotes and lowercase booleans; Python repr uses single quotes + True/False
+    assert "\"summary\"" in prompt
+    assert "\"cross_clinic\": false" in prompt or "\"cross_clinic\": true" in prompt
+    assert "'summary'" not in prompt
+    assert ": False" not in prompt  # Python repr of bool
+    assert ": True" not in prompt
+
+
+def test_critic_node_falls_back_to_pass_on_llm_error(monkeypatch):
+    """Network/rate-limit error must NOT bubble up — critic fails open."""
+    from pillcare.critic import critic_node
+
+    monkeypatch.setattr("pillcare.critic.should_sample_critic", lambda: True)
+
+    class BrokenLLM:
+        def with_structured_output(self, *args, **kwargs):
+            raise RuntimeError("simulated API error")
+
+    result = critic_node(
+        {"guidance_result": {"summary": "x"}, "dur_alerts": [], "drug_infos": []},
+        llm=BrokenLLM(),
+    )
+    assert result["critic_output"]["verdict"] == "pass"
+    assert any(
+        "critic unavailable" in msg for msg in result["critic_output"]["minor_issues"]
+    )
