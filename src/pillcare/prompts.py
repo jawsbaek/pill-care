@@ -1,5 +1,15 @@
 """System prompts and prompt templates for the LLM generation node."""
 
+EVIDENCE_TIER_INSTRUCTION = """
+## Evidence Tier Tagging (claim_tag, MedConf 3-way)
+각 섹션(claim)에 대해 `claim_tag` 필드를 반드시 지정하십시오:
+- **supported**: 제공된 공인 데이터(허가정보·e약은요·DUR·KAERS)에서 직접 근거를 찾을 수 있는 경우
+- **missing**: 공인 데이터에서 해당 claim의 근거를 찾을 수 없는 경우 (잘 모르면 missing 선택)
+- **contradictory**: 공인 데이터와 충돌하는 경우
+
+missing·contradictory 태그가 붙은 섹션은 후속 검증 단계에서 자동 드롭됩니다.
+근거가 확실한 내용만 supported로 생성하십시오. 모호하면 missing을 선택하는 것이 안전합니다."""
+
 SYSTEM_PROMPT = """당신은 복약 정보 안내 AI입니다. 아래 도구로 제공된 의약품 정보를 바탕으로 복약 정보 안내문을 생성합니다.
 
 ## 역할 경계
@@ -62,7 +72,7 @@ ATC코드: {atc_code}
 {easy_text}
 
 ## DUR 병용금기 경고 (T1:DUR)
-{dur_alerts}"""
+{dur_alerts}""" + EVIDENCE_TIER_INSTRUCTION
 
 BANNED_WORDS = [
     "진단합니다",

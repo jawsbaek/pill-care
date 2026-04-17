@@ -4,6 +4,7 @@ import pytest
 from pydantic import ValidationError
 
 from pillcare.schemas import (
+    ClaimTag,
     MatchedDrug,
     DrugGuidance,
     DrugGuidanceOutput,
@@ -12,6 +13,59 @@ from pillcare.schemas import (
     GuidanceResult,
     SourceTier,
 )
+
+
+def test_claim_tag_values():
+    assert ClaimTag.SUPPORTED.value == "supported"
+    assert ClaimTag.MISSING.value == "missing"
+    assert ClaimTag.CONTRADICTORY.value == "contradictory"
+
+
+def test_guidance_section_default_claim_tag_is_supported():
+    section = GuidanceSection(
+        title="효능", content="...", source_tier=SourceTier.T1_PERMIT
+    )
+    assert section.claim_tag == ClaimTag.SUPPORTED
+
+
+def test_guidance_section_accepts_missing_tag():
+    section = GuidanceSection(
+        title="주의",
+        content="추측...",
+        source_tier=SourceTier.T4_AI,
+        claim_tag=ClaimTag.MISSING,
+    )
+    assert section.claim_tag == ClaimTag.MISSING
+
+
+def test_drug_section_output_default_claim_tag_is_supported():
+    s = DrugSectionOutput(
+        section_name="명칭", content="test", source_tier="T1:허가정보"
+    )
+    assert s.claim_tag == ClaimTag.SUPPORTED
+
+
+def test_drug_section_output_carries_claim_tag_through_conversion():
+    output = DrugGuidanceOutput(
+        drug_name="테스트",
+        sections=[
+            DrugSectionOutput(
+                section_name="명칭",
+                content="t",
+                source_tier="T1:허가정보",
+                claim_tag=ClaimTag.SUPPORTED,
+            ),
+            DrugSectionOutput(
+                section_name="투여의의",
+                content="추측",
+                source_tier="T4:AI",
+                claim_tag=ClaimTag.MISSING,
+            ),
+        ],
+    )
+    guidance = output.to_drug_guidance()
+    assert guidance.sections["명칭"].claim_tag == ClaimTag.SUPPORTED
+    assert guidance.sections["투여의의"].claim_tag == ClaimTag.MISSING
 
 
 def test_matched_drug_from_match_result():

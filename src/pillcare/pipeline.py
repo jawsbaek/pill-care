@@ -17,7 +17,11 @@ from pillcare.schemas import (
     SourceTier,
 )
 from pillcare.critic import critic_node as _critic_impl
-from pillcare.guardrails import filter_banned_words, post_verify
+from pillcare.guardrails import (
+    drop_unsupported_claims,
+    filter_banned_words,
+    post_verify,
+)
 from pillcare.tools import make_collect_node, make_dur_node, make_match_node
 
 logger = logging.getLogger(__name__)
@@ -220,8 +224,14 @@ def _verify_node(state: dict) -> dict:
     )
     dur_alerts = state.get("dur_alerts", [])
 
+    # MedConf A5: drop Missing/Contradictory claims before deterministic verify.
+    # This happens upstream of post_verify so downstream rules (T4 ratio,
+    # min sections, closing phrase) see only SUPPORTED sections.
+    result = drop_unsupported_claims(result)
+
     new_errors = post_verify(result, dur_alerts)
     return {
+        "guidance_result": result.model_dump(mode="json"),
         "errors": new_errors,
         "_last_verify_errors": new_errors,
         "_retry_count": retry_count + 1,

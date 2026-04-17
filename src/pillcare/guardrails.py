@@ -1,7 +1,23 @@
 """Enhanced post-verification guardrails."""
 
 from pillcare.prompts import BANNED_WORDS
-from pillcare.schemas import GuidanceResult, SourceTier
+from pillcare.schemas import ClaimTag, GuidanceResult, SourceTier
+
+
+def drop_unsupported_claims(result: GuidanceResult) -> GuidanceResult:
+    """Remove Missing/Contradictory-tagged sections from all drug guidances.
+
+    Implements MedConf (Ren et al. 2026, arXiv:2601.15645) 3-way evidence
+    tier filtering: only SUPPORTED claims survive into downstream verify.
+    Mutates `result` in place and returns it for fluent chaining.
+    """
+    for guidance in result.drug_guidances:
+        guidance.sections = {
+            name: sec
+            for name, sec in guidance.sections.items()
+            if sec.claim_tag == ClaimTag.SUPPORTED
+        }
+    return result
 
 _WARNING_SECTIONS = {"주의사항", "상호작용", "투여종료후"}
 _CLOSING_PHRASE = "의사 또는 약사와 상담하십시오"

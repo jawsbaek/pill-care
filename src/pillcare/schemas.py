@@ -13,6 +13,19 @@ class SourceTier(str, Enum):
     T4_AI = "T4:AI"
 
 
+class ClaimTag(str, Enum):
+    """MedConf-style evidence tier for LLM-generated claims.
+
+    Per Ren et al. 2026 (arXiv:2601.15645), each generated section is
+    self-tagged as Supported/Missing/Contradictory relative to authoritative
+    source data. Missing/Contradictory are dropped before downstream verify.
+    """
+
+    SUPPORTED = "supported"
+    MISSING = "missing"
+    CONTRADICTORY = "contradictory"
+
+
 class MatchedDrug(BaseModel):
     item_seq: str
     drug_name: str
@@ -40,6 +53,7 @@ class GuidanceSection(BaseModel):
     title: str
     content: str
     source_tier: SourceTier
+    claim_tag: ClaimTag = ClaimTag.SUPPORTED  # default for hybrid/legacy compat
 
 
 class DrugGuidance(BaseModel):
@@ -76,6 +90,7 @@ class DrugSectionOutput(BaseModel):
     section_name: SECTION_NAMES
     content: str
     source_tier: SOURCE_TIER_LABELS
+    claim_tag: ClaimTag = ClaimTag.SUPPORTED
 
 
 class DrugGuidanceOutput(BaseModel):
@@ -97,16 +112,26 @@ class DrugGuidanceOutput(BaseModel):
                     if existing.source_tier != SourceTier.T4_AI
                     else tier
                 )
+                # Downgrade claim_tag if merging with non-SUPPORTED: Missing
+                # and Contradictory dominate so unsupported claims still get
+                # dropped downstream.
+                keep_claim_tag = (
+                    existing.claim_tag
+                    if existing.claim_tag != ClaimTag.SUPPORTED
+                    else s.claim_tag
+                )
                 sections_dict[s.section_name] = GuidanceSection(
                     title=s.section_name,
                     content=merged_content,
                     source_tier=keep_tier,
+                    claim_tag=keep_claim_tag,
                 )
             else:
                 sections_dict[s.section_name] = GuidanceSection(
                     title=s.section_name,
                     content=s.content,
                     source_tier=tier,
+                    claim_tag=s.claim_tag,
                 )
         return DrugGuidance(drug_name=self.drug_name, sections=sections_dict)
 

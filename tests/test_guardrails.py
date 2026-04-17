@@ -1,6 +1,7 @@
 """Tests for enhanced post-verification guardrails."""
 
 from pillcare.guardrails import (
+    drop_unsupported_claims,
     verify_dur_coverage,
     filter_banned_words,
     verify_source_tags,
@@ -10,6 +11,7 @@ from pillcare.guardrails import (
 )
 from pillcare.prompts import BANNED_WORDS
 from pillcare.schemas import (
+    ClaimTag,
     DrugGuidance,
     GuidanceResult,
     GuidanceSection,
@@ -194,6 +196,88 @@ def test_verify_min_sections_passes():
         warning_labels=[],
     )
     assert verify_min_sections(result) == []
+
+
+def test_drop_unsupported_claims_removes_missing():
+    result = GuidanceResult(
+        drug_guidances=[
+            DrugGuidance(
+                drug_name="아스피린",
+                sections={
+                    "효능": GuidanceSection(
+                        title="효능",
+                        content="진통",
+                        source_tier=SourceTier.T1_PERMIT,
+                        claim_tag=ClaimTag.SUPPORTED,
+                    ),
+                    "주의": GuidanceSection(
+                        title="주의",
+                        content="추측",
+                        source_tier=SourceTier.T4_AI,
+                        claim_tag=ClaimTag.MISSING,
+                    ),
+                },
+            )
+        ],
+        dur_warnings=[],
+        summary=[],
+        warning_labels=[],
+    )
+    cleaned = drop_unsupported_claims(result)
+    assert "효능" in cleaned.drug_guidances[0].sections
+    assert "주의" not in cleaned.drug_guidances[0].sections
+
+
+def test_drop_unsupported_claims_removes_contradictory():
+    result = GuidanceResult(
+        drug_guidances=[
+            DrugGuidance(
+                drug_name="아스피린",
+                sections={
+                    "효능": GuidanceSection(
+                        title="효능",
+                        content="유효",
+                        source_tier=SourceTier.T1_PERMIT,
+                        claim_tag=ClaimTag.CONTRADICTORY,
+                    ),
+                },
+            )
+        ],
+        dur_warnings=[],
+        summary=[],
+        warning_labels=[],
+    )
+    cleaned = drop_unsupported_claims(result)
+    assert "효능" not in cleaned.drug_guidances[0].sections
+
+
+def test_drop_unsupported_claims_preserves_all_supported():
+    result = GuidanceResult(
+        drug_guidances=[
+            DrugGuidance(
+                drug_name="아스피린",
+                sections={
+                    "효능": GuidanceSection(
+                        title="효능",
+                        content="a",
+                        source_tier=SourceTier.T1_PERMIT,
+                        claim_tag=ClaimTag.SUPPORTED,
+                    ),
+                    "주의": GuidanceSection(
+                        title="주의",
+                        content="b",
+                        source_tier=SourceTier.T1_PERMIT,
+                        claim_tag=ClaimTag.SUPPORTED,
+                    ),
+                },
+            )
+        ],
+        dur_warnings=[],
+        summary=[],
+        warning_labels=[],
+    )
+    cleaned = drop_unsupported_claims(result)
+    assert len(cleaned.drug_guidances[0].sections) == 2
 
 
 def test_verify_closing_phrase_detects_missing():
