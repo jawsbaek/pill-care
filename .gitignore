@@ -28,3 +28,6 @@ data/*
 # Gold set is evaluation asset — tracked in git even though raw MFDS data isn't
 !data/gold_set/
 !data/gold_set/**
+
+# Proposal PDF build artifact (regenerate via scripts/build_proposal_pdf.sh)
+docs/proposal/2026-demo-submission/*.pdf
