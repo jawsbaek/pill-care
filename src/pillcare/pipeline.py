@@ -16,6 +16,7 @@ from pillcare.schemas import (
     GuidanceSection,
     SourceTier,
 )
+from pillcare.critic import critic_node as _critic_impl
 from pillcare.guardrails import filter_banned_words, post_verify
 from pillcare.tools import make_collect_node, make_dur_node, make_match_node
 
@@ -39,6 +40,7 @@ class PublicState(TypedDict, total=False):
 class GraphState(PublicState, total=False):
     _retry_count: int
     _last_verify_errors: list[str]
+    critic_output: dict | None  # CriticOutput.model_dump()
 
 
 def _make_generate_node(llm: Any):
@@ -186,6 +188,20 @@ def _make_generate_node(llm: Any):
     return generate_node
 
 
+def _make_critic_node(critic_llm: Any):
+    """Factory: creates critic node with judge LLM bound via closure.
+
+    The inner function is the LangGraph node; it delegates to the pure
+    `critic.critic_node(state, llm=...)` implementation so the LLM is
+    injected via closure rather than read from state.
+    """
+
+    def critic_fn(state: dict) -> dict:
+        return _critic_impl(state, llm=critic_llm)
+
+    return critic_fn
+
+
 def _verify_node(state: dict) -> dict:
     """Post-verification node."""
     result_data = state.get("guidance_result")
@@ -216,13 +232,27 @@ def _should_retry(state: dict) -> str:
     errors = state.get("_last_verify_errors", [])
     critical = [e for e in errors if e.startswith("[CRITICAL]")]
     retry_count = state.get("_retry_count", 0)
-    if critical and retry_count < _MAX_RETRIES:
+    critic = state.get("critic_output") or {}
+    critic_says_retry = critic.get("verdict") == "retry"
+    if (critical or critic_says_retry) and retry_count < _MAX_RETRIES:
         return "generate"
     return "done"
 
 
-def build_pipeline(db_path: str, llm: Any):
-    """Build the LangGraph StateGraph."""
+def build_pipeline(db_path: str, llm: Any, critic_llm: Any = None):
+    """Build the LangGraph StateGraph.
+
+    6-node pipeline:
+        match_drugs → check_dur → collect_info → generate → critic → verify
+                                                                       ↓
+                                                   (retry on critical/critic)
+    If `critic_llm` is None, defaults to `get_critic_llm()` (Claude Haiku 4.5).
+    """
+    if critic_llm is None:
+        from pillcare.llm_factory import get_critic_llm
+
+        critic_llm = get_critic_llm()
+
     builder = StateGraph(
         GraphState, input_schema=PublicState, output_schema=PublicState
     )
@@ -231,13 +261,15 @@ def build_pipeline(db_path: str, llm: Any):
     builder.add_node("check_dur", make_dur_node(db_path))
     builder.add_node("collect_info", make_collect_node(db_path))
     builder.add_node("generate", _make_generate_node(llm))
+    builder.add_node("critic", _make_critic_node(critic_llm))
     builder.add_node("verify", _verify_node)
 
     builder.add_edge(START, "match_drugs")
     builder.add_edge("match_drugs", "check_dur")
     builder.add_edge("check_dur", "collect_info")
     builder.add_edge("collect_info", "generate")
-    builder.add_edge("generate", "verify")
+    builder.add_edge("generate", "critic")
+    builder.add_edge("critic", "verify")
     builder.add_conditional_edges(
         "verify", _should_retry, {"generate": "generate", "done": END}
     )
@@ -246,10 +278,14 @@ def build_pipeline(db_path: str, llm: Any):
 
 
 def run_pipeline(
-    db_path: str, llm: Any, records: list[dict], profile_id: str = "default"
+    db_path: str,
+    llm: Any,
+    records: list[dict],
+    profile_id: str = "default",
+    critic_llm: Any = None,
 ) -> dict:
     """Run the full pipeline."""
-    graph = build_pipeline(db_path, llm)
+    graph = build_pipeline(db_path, llm, critic_llm=critic_llm)
     initial_state: PublicState = {
         "profile_id": profile_id,
         "raw_records": records,

@@ -106,6 +106,21 @@ def _make_mock_llm(guidance_output: DrugGuidanceOutput):
     return mock_llm
 
 
+def _make_mock_critic_llm():
+    """Mock critic LLM that always returns PASS verdict.
+
+    Used by pipeline tests so they don't need to instantiate the real
+    Claude Haiku client (which requires ANTHROPIC_API_KEY).
+    """
+    from pillcare.schemas import CriticOutput, CriticVerdict
+
+    mock_llm = MagicMock()
+    mock_structured = MagicMock()
+    mock_llm.with_structured_output.return_value = mock_structured
+    mock_structured.invoke.return_value = CriticOutput(verdict=CriticVerdict.PASS)
+    return mock_llm
+
+
 def test_deterministic_nodes(full_db, sample_records):
     state = {"raw_records": sample_records, "errors": []}
     result = make_match_node(str(full_db))(state)
@@ -128,7 +143,9 @@ def test_dur_cross_clinic(full_db, sample_records):
 
 def test_build_pipeline_compiles(full_db, mock_guidance_output):
     mock_llm = _make_mock_llm(mock_guidance_output)
-    graph = build_pipeline(db_path=str(full_db), llm=mock_llm)
+    graph = build_pipeline(
+        db_path=str(full_db), llm=mock_llm, critic_llm=_make_mock_critic_llm()
+    )
     assert graph is not None
 
 
@@ -161,6 +178,7 @@ def test_full_pipeline_with_mock_llm(full_db, sample_records, mock_guidance_outp
         llm=mock_llm,
         records=sample_records,
         profile_id="test-user",
+        critic_llm=_make_mock_critic_llm(),
     )
     assert result["guidance_result"] is not None
     assert result["profile_id"] == "test-user"
@@ -198,6 +216,28 @@ def test_should_retry_on_critical():
     assert (
         _should_retry(
             {"_last_verify_errors": ["출처 태그 누락: A / 명칭"], "_retry_count": 0}
+        )
+        == "done"
+    )
+    # Critic retry verdict should trigger retry even without CRITICAL errors
+    assert (
+        _should_retry(
+            {
+                "_last_verify_errors": [],
+                "_retry_count": 0,
+                "critic_output": {"verdict": "retry", "critical_errors": ["..."]},
+            }
+        )
+        == "generate"
+    )
+    # Critic PASS verdict keeps retry gated by _MAX_RETRIES
+    assert (
+        _should_retry(
+            {
+                "_last_verify_errors": [],
+                "_retry_count": 0,
+                "critic_output": {"verdict": "pass"},
+            }
         )
         == "done"
     )

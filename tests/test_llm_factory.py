@@ -45,3 +45,25 @@ def test_defaults_to_gemini(mock_chat_cls):
     mock_chat_cls.return_value = MagicMock()
     create_llm()
     mock_chat_cls.assert_called_once()
+
+
+@patch("pillcare.llm_factory.ChatAnthropic")
+def test_factory_returns_critic_llm(mock_chat_cls):
+    mock_chat_cls.return_value = MagicMock()
+    from pillcare.llm_factory import get_critic_llm
+
+    llm = get_critic_llm()
+    assert llm is not None
+    mock_chat_cls.assert_called_once()
+
+
+@patch("pillcare.llm_factory.ChatAnthropic")
+def test_critic_llm_is_haiku(mock_chat_cls):
+    """Critic should default to Haiku 4.5 for cost control."""
+    mock_chat_cls.return_value = MagicMock()
+    from pillcare.llm_factory import get_critic_llm
+
+    get_critic_llm()
+    call_kwargs = mock_chat_cls.call_args[1]
+    model_name = call_kwargs.get("model", "")
+    assert "haiku" in model_name.lower()

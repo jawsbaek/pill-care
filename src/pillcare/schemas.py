@@ -133,3 +133,25 @@ class GuidanceResult(BaseModel):
                 if section.source_tier == SourceTier.T4_AI:
                     t4_count += 1
         return t4_count / total if total > 0 else 0.0
+
+
+class CriticVerdict(str, Enum):
+    """Critic node verdict for AMIE-style LLM-as-judge self-critique."""
+
+    PASS = "pass"
+    RETRY = "retry"
+    ESCALATE = "escalate"
+
+
+class CriticOutput(BaseModel):
+    """Structured output from critic (judge) LLM.
+
+    Populated by `critic_node` when sampled. Consumed by verify's
+    `_should_retry` to gate the CRITICAL retry loop alongside deterministic
+    rule-check errors.
+    """
+
+    verdict: CriticVerdict
+    critical_errors: list[str] = Field(default_factory=list)
+    minor_issues: list[str] = Field(default_factory=list)
+    dropped_claims: list[str] = Field(default_factory=list)

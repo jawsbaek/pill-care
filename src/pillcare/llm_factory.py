@@ -32,3 +32,17 @@ def create_llm():
             "HARM_CATEGORY_HARASSMENT": "BLOCK_ONLY_HIGH",
         },
     )
+
+
+def get_critic_llm():
+    """Claude Haiku 4.5 for LLM-as-judge critic role (cost-controlled sampling).
+
+    Uses the `claude-haiku-4-5` short alias (langchain-anthropic >= 1.4.0) for
+    forward compatibility. Temperature is pinned to 0 for deterministic judging.
+    """
+    return ChatAnthropic(
+        model="claude-haiku-4-5",
+        api_key=os.environ.get("ANTHROPIC_API_KEY"),
+        temperature=0,
+        max_tokens=2048,
+    )
