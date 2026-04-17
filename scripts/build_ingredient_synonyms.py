@@ -31,10 +31,28 @@ from pathlib import Path
 
 _INGR_CODE_RE = re.compile(r"\[[A-Z]\d+\]")
 
+_WS_RE = re.compile(r"\s+")
+_TRAILING_PUNCT = " )(.,;:·[]{}"
+
+
+def _normalize_name(raw: str) -> str:
+    """Collapse whitespace, strip trailing/leading punctuation + whitespace.
+
+    Also removes ``[Mxxxxxx]`` MFDS code prefixes. Applied to both KOR and
+    ENG sides before dict insertion so that synonym keys/values don't carry
+    noise like trailing ``)`` or BOM-adjacent whitespace, which otherwise
+    leaks into ``expand_query_with_synonyms`` and generates unmatchable
+    rewritten queries.
+    """
+    s = _INGR_CODE_RE.sub("", raw)  # existing bracket-code stripping
+    s = _WS_RE.sub(" ", s).strip()
+    s = s.strip(_TRAILING_PUNCT)
+    return s
+
 
 def _strip_code(kor_ingr: str) -> str:
     """Remove the ``[Mxxxxxx]`` code prefix, keeping the Korean ingredient name."""
-    return _INGR_CODE_RE.sub("", kor_ingr).strip()
+    return _normalize_name(kor_ingr)
 
 
 def _split_pair(kor_raw: str, eng_raw: str) -> list[tuple[str, str]]:
@@ -49,7 +67,10 @@ def _split_pair(kor_raw: str, eng_raw: str) -> list[tuple[str, str]]:
     seed set for synonym expansion.
     """
     kor_parts = [_strip_code(p) for p in kor_raw.split("|") if p.strip()]
-    eng_parts = [p.strip() for p in re.split(r"[/,]", eng_raw) if p.strip()]
+    eng_parts = [_normalize_name(p) for p in re.split(r"[/,]", eng_raw) if p.strip()]
+    # Drop pairs where either side became empty after normalization.
+    kor_parts = [p for p in kor_parts if p]
+    eng_parts = [p for p in eng_parts if p]
     if len(kor_parts) == 1 and len(eng_parts) == 1:
         return [(kor_parts[0], eng_parts[0])]
     return []
@@ -107,8 +128,11 @@ def build_synonyms(
     synonyms: dict[str, set[str]] = {}
     for kor_raw, eng_raw in raw_rows:
         for kor, eng in _split_pair(kor_raw, eng_raw):
-            kor_n = kor.strip()
-            eng_n = eng.strip().lower()
+            # ``_split_pair`` already normalized whitespace / punctuation via
+            # ``_normalize_name``; we just lowercase ENG here and guard
+            # against empties one more time.
+            kor_n = _normalize_name(kor)
+            eng_n = _normalize_name(eng).lower()
             if not kor_n or not eng_n:
                 continue
             synonyms.setdefault(kor_n, set()).add(eng_n)

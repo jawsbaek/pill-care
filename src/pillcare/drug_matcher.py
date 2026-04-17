@@ -37,6 +37,25 @@ _FTS5_UNSAFE = re.compile(r'["\(\)\*\-\+\:\^]')
 
 _DOSE_PATTERN = re.compile(r"(\d+(?:\.\d+)?)\s*(mg|mcg|ml|iu|g)\b", re.IGNORECASE)
 
+# Canonical mg conversion factors. ``None`` means the unit is not
+# mass-convertible (volume / activity units), so those candidates must
+# match by raw ``(number, unit)`` identity instead.
+_UNIT_TO_MG: dict[str, float | None] = {
+    "mg": 1.0,
+    "mcg": 0.001,
+    "g": 1000.0,
+    "ml": None,  # volume, not mass-convertible
+    "iu": None,  # activity unit, not mass-convertible
+}
+
+
+def _canonical_mg(number: str, unit: str) -> float | None:
+    """Return mass in mg, or None if unit is not mass-convertible."""
+    factor = _UNIT_TO_MG.get(unit.lower())
+    if factor is None:
+        return None
+    return float(number) * factor
+
 # data/ingredient_synonyms.json lives at <repo-root>/data/...; this file is at
 # <repo-root>/src/pillcare/drug_matcher.py, so go up two parents.
 _SYNONYMS_PATH = (
@@ -91,7 +110,10 @@ def _dose_matches(query: str, candidate: str) -> bool:
 
     - No dose in query → always True (caller didn't constrain).
     - Dose in query, no dose in candidate → False (ambiguous, fail-closed).
-    - Both have doses → True iff at least one (number, unit) pair overlaps.
+    - Both have doses → True iff at least one dose overlaps after unit
+      normalization. Mass units (mg/mcg/g) are compared by canonical mg
+      value so ``0.5g`` matches ``500mg``. Non-mass units (ml/IU) are
+      compared by raw ``(number, unit)`` identity.
     """
     q_doses = _DOSE_PATTERN.findall(query)
     if not q_doses:
@@ -99,9 +121,15 @@ def _dose_matches(query: str, candidate: str) -> bool:
     c_doses = _DOSE_PATTERN.findall(candidate)
     if not c_doses:
         return False
-    q_set = {(n, u.lower()) for n, u in q_doses}
-    c_set = {(n, u.lower()) for n, u in c_doses}
-    return bool(q_set & c_set)
+    q_mass = {
+        _canonical_mg(n, u) for n, u in q_doses if _canonical_mg(n, u) is not None
+    }
+    c_mass = {
+        _canonical_mg(n, u) for n, u in c_doses if _canonical_mg(n, u) is not None
+    }
+    q_nonmass = {(n, u.lower()) for n, u in q_doses if _canonical_mg(n, u) is None}
+    c_nonmass = {(n, u.lower()) for n, u in c_doses if _canonical_mg(n, u) is None}
+    return bool(q_mass & c_mass) or bool(q_nonmass & c_nonmass)
 
 
 def _sanitize_fts5(query: str) -> str:

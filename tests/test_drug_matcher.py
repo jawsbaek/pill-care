@@ -125,3 +125,32 @@ def test_dose_exact_guard_rejects_mismatched_dose():
     assert _dose_matches("타이레놀 500mg", "타이레놀정") is False
     # handle decimals and different units
     assert _dose_matches("약 0.5g", "약 0.5g 정") is True
+
+
+def test_dose_matches_unit_normalization_g_to_mg():
+    from pillcare.drug_matcher import _dose_matches
+
+    assert _dose_matches("타이레놀 500mg", "타이레놀 0.5g") is True
+    assert _dose_matches("메트포르민 1g", "메트포르민 1000mg") is True
+
+
+def test_dose_matches_mcg_to_mg():
+    from pillcare.drug_matcher import _dose_matches
+
+    # 500mcg = 0.5mg
+    assert _dose_matches("약 500mcg", "약 0.5mg") is True
+
+
+def test_dose_matches_ml_unit_unchanged():
+    from pillcare.drug_matcher import _dose_matches
+
+    # volume unit: no mg conversion, but same (n, u) matches
+    assert _dose_matches("시럽 5ml", "시럽 5ml") is True
+    assert _dose_matches("시럽 5ml", "시럽 10ml") is False
+
+
+def test_dose_matches_iu_unit_unchanged():
+    from pillcare.drug_matcher import _dose_matches
+
+    assert _dose_matches("비타민D 1000IU", "비타민D 1000IU") is True
+    assert _dose_matches("비타민D 1000IU", "비타민D 500IU") is False
