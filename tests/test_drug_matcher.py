@@ -1,5 +1,6 @@
 """Tests for 4-phase drug matcher."""
 
+import inspect
 import json
 from pathlib import Path
 
@@ -75,3 +76,52 @@ def test_match_returns_ingr_codes(db_path):
     assert len(result.ingr_codes) == 2
     assert "M175201" in result.ingr_codes
     assert "M146801" in result.ingr_codes
+
+
+# --- A3: Ingredient synonym expansion + dose-exact guard -------------------
+
+
+def test_expand_query_with_synonyms_english_to_korean():
+    from pillcare.drug_matcher import expand_query_with_synonyms
+
+    queries = expand_query_with_synonyms("acetaminophen 500mg")
+    joined = " ".join(queries)
+    assert any("아세트아미노펜" in q for q in queries), (
+        f"expected Korean synonym in {queries!r}"
+    )
+    # Dose suffix must be preserved in the rewritten query
+    assert "500mg" in joined
+
+
+def test_expand_query_with_synonyms_korean_to_english():
+    from pillcare.drug_matcher import expand_query_with_synonyms
+
+    queries = expand_query_with_synonyms("아세트아미노펜 500mg")
+    joined = " ".join(queries).lower()
+    assert "acetaminophen" in joined or "paracetamol" in joined
+
+
+def test_expand_query_returns_original_when_no_synonym():
+    from pillcare.drug_matcher import expand_query_with_synonyms
+
+    queries = expand_query_with_synonyms("some-unknown-drug-xyz-123")
+    assert "some-unknown-drug-xyz-123" in queries
+
+
+def test_match_drug_default_min_score_is_85():
+    sig = inspect.signature(match_drug)
+    assert sig.parameters["min_score"].default == 85
+
+
+def test_dose_exact_guard_rejects_mismatched_dose():
+    """When query has '500mg', candidate with '160mg' must not pass."""
+    from pillcare.drug_matcher import _dose_matches
+
+    assert _dose_matches("타이레놀 500mg", "타이레놀정 500mg") is True
+    assert _dose_matches("타이레놀 500mg", "타이레놀정 160mg") is False
+    # no dose in query → pass regardless of candidate
+    assert _dose_matches("아스피린", "아스피린장용정 100mg") is True
+    # query has dose but candidate has none → must not pass
+    assert _dose_matches("타이레놀 500mg", "타이레놀정") is False
+    # handle decimals and different units
+    assert _dose_matches("약 0.5g", "약 0.5g 정") is True
