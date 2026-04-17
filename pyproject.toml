@@ -10,16 +10,20 @@ requires-python = ">=3.14"
 dependencies = [
     "anthropic==0.95.0",
     "google-cloud-storage>=3.10,<4.0",
+    "huggingface-hub>=0.25.0",
     "langchain-anthropic==1.4.0",
     "langchain-core==1.2.30",
     "langchain-google-genai==4.2.2",
     "langgraph==1.1.6",
     "msoffcrypto-tool==6.0.0",
+    "onnxruntime>=1.20.0",
     "openpyxl==3.1.5",
     "pydantic==2.13.1",
     "python-dotenv==1.2.2",
     "rapidfuzz==3.14.5",
+    "sentence-transformers>=3.3.0",
     "streamlit==1.56.0",
+    "transformers>=4.50.0",
 ]
 
 [build-system]
@@ -34,3 +38,8 @@ dev = [
 
 [tool.ruff]
 target-version = "py314"
+
+[tool.pytest.ini_options]
+markers = [
+    "slow: marks tests as slow (model-loading, deselect with '-m \"not slow\"')",
+]

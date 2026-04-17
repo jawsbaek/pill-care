@@ -15,3 +15,6 @@ __pycache__/
 
 # OS
 .DS_Store
+
+# Downloaded ML models (NLI / embeddings) — recreate via scripts/download_nli_model.py
+models/

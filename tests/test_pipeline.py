@@ -176,7 +176,12 @@ def test_generate_with_mock_llm(full_db, sample_records, mock_guidance_output):
     assert mock_llm.with_structured_output.called
 
 
+@pytest.mark.slow
 def test_full_pipeline_with_mock_llm(full_db, sample_records, mock_guidance_output):
+    # Marked slow because the verify node runs the A6 intent classifier
+    # (KURE-v1 SentenceTransformer) on every guidance section, which
+    # triggers the ~10s one-time model load. Other pipeline nodes are
+    # fast — see the unit-level pipeline tests for sub-second coverage.
     mock_llm = _make_mock_llm(mock_guidance_output)
     result = run_pipeline(
         db_path=str(full_db),
